@@ -1,0 +1,17 @@
+appId: com.managerexe.app
+productName: Manager.exe
+directories:
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+win:
+  target: nsis
+  icon: build/icon.ico
+  executableName: Manager
+nsis:
+  artifactName: ${name}-${version}-setup.${ext}
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+  createDesktopShortcut: always
+npmRebuild: false

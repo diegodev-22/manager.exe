@@ -1,0 +1,7 @@
+onlyBuiltDependencies:
+  - electron
+  - esbuild
+
+# The project uses NSIS rather than the Squirrel installer.
+ignoredBuiltDependencies:
+  - electron-winstaller

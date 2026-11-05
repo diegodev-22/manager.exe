@@ -1,0 +1,22 @@
+# Dependencies and generated files
+node_modules/
+out/
+dist/
+release/
+artifacts/
+.pnpm-store/
+.cache/
+.vite/
+coverage/
+playwright-report/
+test-results/
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
+
+# Generated lockfile and local secrets
+pnpm-lock.yaml
+.env
+.env.*
+!.env.example
+!.env.*.example
