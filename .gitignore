@@ -17,6 +17,7 @@ bun.lockb
 # Tooling caches and test output
 .cache/
 .vite/
+.vitest/
 .eslintcache
 .stylelintcache
 *.tsbuildinfo

@@ -18,5 +18,6 @@ export default defineConfig(
       ...eslintPluginReactRefresh.configs.vite.rules
     }
   },
+  // Keep this last so formatting remains Prettier's responsibility rather than a conflicting lint rule.
   eslintConfigPrettier
 )
