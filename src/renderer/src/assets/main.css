@@ -1,5 +1,6 @@
 @import './base.css';
 
+/* Keep the renderer surface full-height even while App intentionally renders no content. */
 #root {
   min-height: 100vh;
 }
