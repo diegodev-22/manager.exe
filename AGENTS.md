@@ -9,9 +9,10 @@ Windows is the only current development and packaging target. macOS and Linux ar
 adaptations, not supported platforms. Do not implement their integration or claim compatibility
 without a separately approved task and verification.
 
-The current application is a scaffold that opens an empty window. Gameplay, desktop overlays,
-pointer capture, and menus are not implemented. Keep planned behavior separate from existing
-behavior in documentation and completion reports.
+The current application opens an empty window. A pure TypeScript game-state core and Vitest unit
+tests exist, but are not connected to that window. Gameplay, desktop overlays, pointer capture,
+and menus are not implemented. Keep planned behavior separate from existing behavior in
+documentation and completion reports.
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) for contributor policy, GitFlow, and PR expectations.
 Use [README.md](README.md) for the project overview, not as a substitute for inspecting the code.
@@ -21,6 +22,8 @@ Use [README.md](README.md) for the project overview, not as a substitute for ins
 - `src/main/`: Electron windows, application lifecycle, and future privileged desktop operations.
 - `src/preload/`: Entry point for a future narrow, typed desktop API bridge.
 - `src/renderer/src/`: React interface, CSS, and future game presentation.
+- `src/renderer/src/game/core/`: Pure state transitions with no React, DOM, or Electron dependencies.
+- `tests/unit/`: Versioned unit tests for production behavior, run in a Node.js environment.
 - `build/`: Authored packaging resources. Keep the Windows icon versioned.
 - `out/` and `dist/`: Generated output. Do not edit or commit it.
 - `package.json`: Available scripts and the pinned package manager.
@@ -34,17 +37,19 @@ or speculative directory hierarchy without an agreed requirement.
 Use Node.js 24 LTS and the pnpm version in `package.json` (currently 10.34.9). Run commands from the
 repository root.
 
-| Command                          | Purpose                                  |
-| -------------------------------- | ---------------------------------------- |
-| `pnpm install --frozen-lockfile` | Install the locked dependency graph.     |
-| `pnpm dev`                       | Start the development application.       |
-| `pnpm format:check`              | Check formatting without changing files. |
-| `pnpm lint`                      | Run ESLint.                              |
-| `pnpm typecheck`                 | Check main, preload, and renderer types. |
-| `pnpm build`                     | Check types and compile the application. |
-| `pnpm start`                     | Preview an existing compiled build.      |
-| `pnpm build:unpack`              | Build an unpacked Windows application.   |
-| `pnpm build:win`                 | Build the Windows installer.             |
+| Command                          | Purpose                                                 |
+| -------------------------------- | ------------------------------------------------------- |
+| `pnpm install --frozen-lockfile` | Install the locked dependency graph.                    |
+| `pnpm dev`                       | Start the development application.                      |
+| `pnpm format:check`              | Check formatting without changing files.                |
+| `pnpm lint`                      | Run ESLint.                                             |
+| `pnpm test`                      | Run unit tests once.                                    |
+| `pnpm test:watch`                | Run unit tests in watch mode.                           |
+| `pnpm typecheck`                 | Check application, tests, and test configuration types. |
+| `pnpm build`                     | Check types and compile the application.                |
+| `pnpm start`                     | Preview an existing compiled build.                     |
+| `pnpm build:unpack`              | Build an unpacked Windows application.                  |
+| `pnpm build:win`                 | Build the Windows installer.                            |
 
 If pnpm is unavailable, use `npx --yes pnpm@10.34.9` in its place. Do not install global tools,
 replace the package manager, or add unrelated dependencies without approval.
@@ -61,19 +66,44 @@ replace the package manager, or add unrelated dependencies without approval.
   and bounded Canvas effects when gameplay is introduced.
 - Give event listeners, timers, animation loops, and input capture a clear lifecycle and cleanup owner.
 
+The core starts in `ready`. Settings open only from `paused` and close back to `paused`; resuming
+is explicit. Preserve the caller's exact session reference through pause, resume, and settings.
+Unsupported actions return the same state object. `exit` enters terminal `exiting`, which ignores
+all further actions. This is a shutdown request, not an Electron side effect. See
+[game lifecycle](CONTRIBUTING.md#game-lifecycle) before changing these rules.
+
 ## Coding conventions
 
-- Write code, identifiers, comments, documentation, commit messages, and PR titles in English.
+- Write all source code, identifiers, comments, test descriptions, commit messages, and PR titles
+  in English. English is the canonical documentation language; explicitly translated READMEs and
+  localized player-facing text are intentional exceptions, not permission to translate source names
+  or comments.
 - Follow the surrounding code and the checked-in ESLint, Prettier, and EditorConfig settings.
 - Keep strict TypeScript enabled. Avoid `any`, unchecked assertions, and suppressed errors.
 - Use React function components and respect the Rules of Hooks.
 - Prefer readable, focused implementations. Extract helpers when they name a useful concept or
   remove duplication; do not add abstractions for hypothetical future use.
 - Use CSS for styling. Do not add a styling framework or component library without agreement.
-- Explain non-obvious constraints, not obvious assignments or control flow.
+- Make responsibilities, contracts, and non-obvious constraints understandable to new contributors.
 - Optimize observed problems and report measurements before claiming performance improvements.
 
 Do not change dependencies or regenerate the lockfile for a documentation-only task.
+
+### Comments and reuse
+
+- Document exported APIs, hooks, components, and nontrivial internal responsibilities with English
+  TSDoc. Explain session ownership, side effects, lifecycle, units, and limitations where applicable.
+- Use a concise summary and meaningful `@typeParam`, `@param`, `@returns`, `@remarks`, and `@example`
+  sections. Do not duplicate TypeScript types in JSDoc annotations or add tags without useful content.
+- Use inline comments for the reason behind non-obvious logic. Explain effect cleanup in React,
+  security boundaries in Electron, and unusual CSS or test constraints where they occur.
+- Keep comments current with behavior. Do not narrate every line or leave obsolete commented-out code.
+- Search for existing functions, hooks, components, types, and fixtures before adding alternatives.
+  Reuse them when their contracts and architecture boundaries fit; inspect consumers before changing
+  a shared helper. Do not force unrelated behavior into a generic abstraction just to remove a few lines.
+
+Follow [comments and API documentation](CONTRIBUTING.md#comments-and-api-documentation) and
+[reuse and clean structure](CONTRIBUTING.md#reuse-and-clean-structure) when implementing or reviewing.
 
 ## Desktop safety
 
@@ -98,13 +128,18 @@ Choose checks based on the affected behavior:
 
 - Documentation-only changes: run formatting checks and verify links, paths, commands, and claims.
   Do not run a desktop build solely to validate prose.
-- TypeScript or application configuration changes: run formatting, lint, type checking, and build.
+- TypeScript or application configuration changes: run formatting, lint, type checking, relevant
+  unit tests, and build.
 - Interface or desktop behavior changes: add relevant manual Windows checks. A successful build
   does not prove that input capture, focus, accessibility, or cleanup works.
 - Packaging changes: run the relevant Windows packaging command as well as the application build.
 
-No automated test suite or CI workflows are configured yet. Do not invent test commands or report
-unexecuted checks as passing. Distinguish source inspection, executed checks, and remaining gaps.
+Keep unit tests in `tests/unit/` and import the real implementation. Vitest uses Node.js with explicit
+test imports; do not add browser mocks or Electron launches to pure core tests. Test sources and
+configuration belong in Git, while `.vitest/`, coverage output, and reports remain ignored.
+
+Coverage reporting and CI workflows are not configured. Do not report unexecuted checks as passing.
+Distinguish source inspection, executed tests, and remaining gaps, especially actual desktop shutdown.
 
 ## Git and change management
 
@@ -126,4 +161,5 @@ Link to the document that owns a policy instead of copying long sections into mu
 Do not claim that branch protections, CI, releases, downloads, or gameplay features exist unless
 verified. The version in `package.json` alone is not evidence of a published release.
 
-`CHANGELOG.md` is currently an empty placeholder. Leave it empty until its format and content are agreed.
+Update `CHANGELOG.md` under `Unreleased` for notable changes in the same branch and PR.
+Follow [changelog maintenance](CONTRIBUTING.md#changelog-maintenance); do not invent releases or dates.

@@ -12,7 +12,7 @@ Un videojuego arcade de escritorio para Windows, actualmente en desarrollo.
 [![Plataforma: Windows](https://img.shields.io/badge/Plataforma-Windows-0078D4?style=flat-square)](#requisitos)
 [![Estado: Desarrollo inicial](https://img.shields.io/badge/Estado-Desarrollo_inicial-orange?style=flat-square)](#estado-del-proyecto)
 
-[Primeros pasos](#primeros-pasos) · [Cómo contribuir](../CONTRIBUTING.md) · [Reportar un error](https://github.com/diegodev-22/manager.exe/issues)
+[Primeros pasos](#primeros-pasos) · [Cómo contribuir](../CONTRIBUTING.md) · [Historial de cambios](../CHANGELOG.md) · [Reportar un error](https://github.com/diegodev-22/manager.exe/issues)
 
 </div>
 
@@ -38,6 +38,12 @@ el minijuego original sin cambios.
 
 La base ya está preparada: Electron, una interfaz con React, TypeScript en modo estricto, CSS,
 herramientas de análisis y formato de código, y configuración de empaquetado para Windows.
+
+También se incluye un núcleo de estados del juego en TypeScript puro y pruebas unitarias con
+Vitest. El núcleo gestiona las acciones de iniciar, pausar, reanudar, abrir y cerrar ajustes, y
+solicitar la salida, pero todavía no está conectado a la ventana de la aplicación. Solicitar la
+salida en el núcleo no cierra Electron. Consulta el
+[ciclo de vida del juego](../CONTRIBUTING.md#game-lifecycle) para conocer las reglas de transición.
 
 La experiencia prevista incluye:
 
@@ -105,16 +111,18 @@ Para los demás comandos, sustituye `pnpm` por `npx --yes pnpm@10.34.9`.
 
 Ejecuta los comandos desde la raíz del proyecto.
 
-| Comando             | Propósito                                                          |
-| ------------------- | ------------------------------------------------------------------ |
-| `pnpm dev`          | Iniciar la aplicación en modo de desarrollo.                       |
-| `pnpm format:check` | Comprobar el formato sin modificar archivos.                       |
-| `pnpm lint`         | Ejecutar ESLint.                                                   |
-| `pnpm typecheck`    | Comprobar los tipos de los procesos main, preload y renderer.      |
-| `pnpm build`        | Comprobar los tipos y compilar la aplicación.                      |
-| `pnpm start`        | Abrir la aplicación compilada después de ejecutar una compilación. |
-| `pnpm build:unpack` | Generar una aplicación de Windows sin instalador.                  |
-| `pnpm build:win`    | Generar el instalador para Windows.                                |
+| Comando             | Propósito                                                             |
+| ------------------- | --------------------------------------------------------------------- |
+| `pnpm dev`          | Iniciar la aplicación en modo de desarrollo.                          |
+| `pnpm format:check` | Comprobar el formato sin modificar archivos.                          |
+| `pnpm lint`         | Ejecutar ESLint.                                                      |
+| `pnpm test`         | Ejecutar las pruebas unitarias una vez.                               |
+| `pnpm test:watch`   | Ejecutar las pruebas unitarias en modo de observación.                |
+| `pnpm typecheck`    | Comprobar los tipos de la aplicación, las pruebas y su configuración. |
+| `pnpm build`        | Comprobar los tipos y compilar la aplicación.                         |
+| `pnpm start`        | Abrir la aplicación compilada después de ejecutar una compilación.    |
+| `pnpm build:unpack` | Generar una aplicación de Windows sin instalador.                     |
+| `pnpm build:win`    | Generar el instalador para Windows.                                   |
 
 ## Estructura del proyecto
 
@@ -128,13 +136,16 @@ src/
     src/
       assets/           CSS global y recursos visuales
       components/       Componentes de React
+      game/core/        Transiciones de estado en TypeScript puro
       App.tsx           Componente raíz, actualmente vacío
       main.tsx          Punto de entrada de React
+tests/unit/game/        Pruebas unitarias del núcleo del juego
+vitest.config.mts       Configuración de las pruebas unitarias
 ```
 
 La estructura sigue la plantilla de React y TypeScript de electron-vite. Las responsabilidades de
-escritorio se mantienen separadas de la interfaz de React; los sistemas del juego se incorporarán
-a medida que avance el desarrollo.
+escritorio se mantienen separadas de la interfaz de React. El núcleo de estados del juego es
+independiente de ambos; los sistemas de juego se incorporarán a medida que avance el desarrollo.
 
 ## Cómo contribuir
 

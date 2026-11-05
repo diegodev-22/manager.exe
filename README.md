@@ -12,7 +12,7 @@ A Windows desktop arcade game in development.
 [![Target: Windows](https://img.shields.io/badge/Target-Windows-0078D4?style=flat-square)](#requirements)
 [![Status: Early development](https://img.shields.io/badge/Status-Early_development-orange?style=flat-square)](#project-status)
 
-[Get started](#getting-started) · [Contribute](CONTRIBUTING.md) · [Report a bug](https://github.com/diegodev-22/manager.exe/issues)
+[Get started](#getting-started) · [Contribute](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Report a bug](https://github.com/diegodev-22/manager.exe/issues)
 
 </div>
 
@@ -38,6 +38,11 @@ original minigame unchanged.
 
 The foundation is in place: Electron, a React renderer, strict TypeScript, CSS, linting, formatting,
 and Windows packaging configuration.
+
+A pure TypeScript game-state core and Vitest unit tests are also included. The core handles start,
+pause, resume, settings, and exit requests, but is not connected to the application window yet.
+An exit request in the core does not close Electron. See the
+[game lifecycle](CONTRIBUTING.md#game-lifecycle) for the transition rules.
 
 The planned experience includes:
 
@@ -99,16 +104,18 @@ For the other commands below, replace `pnpm` with `npx --yes pnpm@10.34.9`.
 
 Run commands from the project root.
 
-| Command             | Purpose                                         |
-| ------------------- | ----------------------------------------------- |
-| `pnpm dev`          | Start the application in development mode.      |
-| `pnpm format:check` | Check formatting without changing files.        |
-| `pnpm lint`         | Run ESLint.                                     |
-| `pnpm typecheck`    | Check main, preload, and renderer types.        |
-| `pnpm build`        | Check types and compile the application.        |
-| `pnpm start`        | Preview the compiled application after a build. |
-| `pnpm build:unpack` | Build an unpacked Windows application.          |
-| `pnpm build:win`    | Build the Windows installer.                    |
+| Command             | Purpose                                                |
+| ------------------- | ------------------------------------------------------ |
+| `pnpm dev`          | Start the application in development mode.             |
+| `pnpm format:check` | Check formatting without changing files.               |
+| `pnpm lint`         | Run ESLint.                                            |
+| `pnpm test`         | Run the unit tests once.                               |
+| `pnpm test:watch`   | Run unit tests in watch mode.                          |
+| `pnpm typecheck`    | Check application, test, and test configuration types. |
+| `pnpm build`        | Check types and compile the application.               |
+| `pnpm start`        | Preview the compiled application after a build.        |
+| `pnpm build:unpack` | Build an unpacked Windows application.                 |
+| `pnpm build:win`    | Build the Windows installer.                           |
 
 ## Project structure
 
@@ -122,12 +129,16 @@ src/
     src/
       assets/           Global CSS and visual assets
       components/       React components
+      game/core/        Pure TypeScript game-state transitions
       App.tsx           Root component, currently empty
       main.tsx          React entry point
+tests/unit/game/        Unit tests for the game core
+vitest.config.mts       Unit test configuration
 ```
 
 The layout follows the electron-vite React + TypeScript template. Desktop responsibilities stay
-separate from the React interface; gameplay systems will be added as development progresses.
+separate from the React interface. The game-state core is independent of both; gameplay systems
+will be added as development progresses.
 
 ## Contributing
 
