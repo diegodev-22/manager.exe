@@ -155,8 +155,7 @@ and [files in Git](CONTRIBUTING.md#files-in-git) for versioned resources versus 
 
 ## Creators
 
-Created by **Diego Avalos** and **Giovanni Vilela**. Giovanni proposed the initial idea,
-which both creators developed together.
+Created by **Diego Avalos** and **Giovanni Vilela**.
 
 ## Contributing
 

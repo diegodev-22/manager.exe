@@ -166,8 +166,7 @@ de archivos locales o generados. Ambas secciones están escritas en inglés.
 
 ## Creadores
 
-Creado por **Diego Avalos** y **Giovanni Vilela**. Giovanni propuso la idea inicial,
-que ambos creadores fueron desarrollando juntos.
+Creado por **Diego Avalos** y **Giovanni Vilela**.
 
 ## Cómo contribuir
 
