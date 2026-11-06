@@ -33,16 +33,36 @@ original minigame unchanged.
 ## Project status
 
 > [!IMPORTANT]
-> Manager.exe is in early development. The current application opens an empty window; there is
-> no playable game yet.
+> Manager.exe is in early development. A desktop interaction demo is implemented; there are no
+> finished minigames yet. Multi-monitor interaction and Windows task switching still need manual
+> verification before the overlay can be considered ready.
 
 The foundation is in place: Electron, a React renderer, strict TypeScript, CSS, linting, formatting,
 and Windows packaging configuration.
 
-A pure TypeScript game-state core and Vitest unit tests are also included. The core handles start,
-pause, resume, settings, and exit requests, but is not connected to the application window yet.
-An exit request in the core does not close Electron. See the
-[game lifecycle](CONTRIBUTING.md#game-lifecycle) for the transition rules.
+A pure TypeScript game-state core is connected to a minimal menu: Manager.exe above Play (Resume
+when paused), a disabled Settings placeholder, and Exit. Play activates a transparent primary-monitor
+surface and secondary-display input shields. The demo draws a primary-monitor virtual cursor and pauses on
+focus loss. Returning leaves the pause menu open; only Resume reactivates the overlay.
+The compact menu supports arrow-key navigation between enabled buttons, Enter to activate, and
+ordinary Tab/Shift+Tab navigation.
+
+The native Windows cursor is not confined or moved. It can cross displays, but the visible virtual
+cursor stays inside the primary play area and secondary-display clicks are ignored by the game.
+The menu uses a plain dark-gray palette, a local arcade font, and a monochrome pixel cursor based on
+the supplied visual reference. The 12-by-21-pixel gameplay cursor matches the menu cursor's size.
+The primary play area's edges darken softly toward the outside, leaving the center transparent
+and keeping notifications and the cursor above the shading. Cursor drawing uses the latest position
+in on-demand display frames, without interpolation or an idle animation loop. Performance on
+low-end hardware has not been measured.
+Short Esc help appears after 1.5 seconds of pointer inactivity and slides away when movement resumes;
+reduced-motion preferences disable the animation. Esc opens the pause menu rather than immediately quitting.
+Exit requests are handled through
+a narrow preload bridge and close Electron. Settings remain a
+core state only, with no settings interface yet. See the [game lifecycle](CONTRIBUTING.md#game-lifecycle).
+
+Tests and test tooling are currently removed. The maintainer performs manual gameplay checks;
+tests will only be added or run when explicitly requested. Static checks remain available below.
 
 The planned experience includes:
 
@@ -50,10 +70,10 @@ The planned experience includes:
 - A catching minigame adapted from Zoom Manager's original minigame to the new antagonist.
 - An original villain with a new name and avatar, both still to be designed.
 - Pixel-art effects, expressive dialogue, and an arcade-style introduction.
-- A desktop overlay that receives gameplay clicks without passing them to applications underneath.
-- An `Esc` pause menu with resume and settings controls, while preserving safe ways to leave the game.
+- A verified desktop overlay that receives gameplay clicks without passing them to applications underneath.
+- Settings controls and further accessibility and input verification for the existing pause menu.
 
-These are development goals, not features available in the current scaffold. The minigame lineup,
+These are development goals, not completed features of the interaction demo. The minigame lineup,
 character design, and other details may evolve as development progresses.
 
 ## Platforms
@@ -83,8 +103,9 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-This starts Electron and the Vite development server. An empty application window is expected at
-this stage. Contributors should follow the branch workflow in [CONTRIBUTING.md](CONTRIBUTING.md#gitflow).
+This starts Electron and the Vite development server at the demo menu. Play temporarily shields
+the desktop from clicks; Esc pauses, and Exit or Alt+F4 closes the application. Contributors should
+follow the branch workflow in [CONTRIBUTING.md](CONTRIBUTING.md#gitflow).
 
 <details>
 <summary>Don't have pnpm installed?</summary>
@@ -104,18 +125,16 @@ For the other commands below, replace `pnpm` with `npx --yes pnpm@10.34.9`.
 
 Run commands from the project root.
 
-| Command             | Purpose                                                |
-| ------------------- | ------------------------------------------------------ |
-| `pnpm dev`          | Start the application in development mode.             |
-| `pnpm format:check` | Check formatting without changing files.               |
-| `pnpm lint`         | Run ESLint.                                            |
-| `pnpm test`         | Run the unit tests once.                               |
-| `pnpm test:watch`   | Run unit tests in watch mode.                          |
-| `pnpm typecheck`    | Check application, test, and test configuration types. |
-| `pnpm build`        | Check types and compile the application.               |
-| `pnpm start`        | Preview the compiled application after a build.        |
-| `pnpm build:unpack` | Build an unpacked Windows application.                 |
-| `pnpm build:win`    | Build the Windows installer.                           |
+| Command             | Purpose                                         |
+| ------------------- | ----------------------------------------------- |
+| `pnpm dev`          | Start the application in development mode.      |
+| `pnpm format:check` | Check formatting without changing files.        |
+| `pnpm lint`         | Run ESLint.                                     |
+| `pnpm typecheck`    | Check application types.                        |
+| `pnpm build`        | Check types and compile the application.        |
+| `pnpm start`        | Preview the compiled application after a build. |
+| `pnpm build:unpack` | Build an unpacked Windows application.          |
+| `pnpm build:win`    | Build the Windows installer.                    |
 
 ## Project structure
 
@@ -123,22 +142,23 @@ Run commands from the project root.
 build/                  Windows packaging resources
 src/
   main/                 Electron window and application lifecycle
-  preload/              Entry point for future scoped desktop APIs
+  preload/              Narrow typed desktop bridge
+  shared/               Desktop bridge contracts and command validation
+    game/               Pure shared game-state transitions
   renderer/
     index.html          Renderer HTML entry point
     src/
       assets/           Global CSS and visual assets
       components/       React components
-      game/core/        Pure TypeScript game-state transitions
-      App.tsx           Root component, currently empty
+      App.tsx           Demo menu, pause view, and test surface
       main.tsx          React entry point
-tests/unit/game/        Unit tests for the game core
-vitest.config.mts       Unit test configuration
 ```
 
 The layout follows the electron-vite React + TypeScript template. Desktop responsibilities stay
 separate from the React interface. The game-state core is independent of both; gameplay systems
 will be added as development progresses.
+See [layout and naming](CONTRIBUTING.md#layout-and-naming) for file ownership and naming conventions,
+and [files in Git](CONTRIBUTING.md#files-in-git) for versioned resources versus generated output.
 
 ## Contributing
 
@@ -151,3 +171,4 @@ Instructions for coding agents live in [AGENTS.md](AGENTS.md).
 ## License
 
 Manager.exe is licensed under the [MIT License](LICENSE).
+Bundled fonts retain their own license; see [third-party notices](THIRD_PARTY_NOTICES.md).
