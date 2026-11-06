@@ -1,3 +1,33 @@
-// This entry intentionally exposes nothing until a concrete desktop API is needed.
-// Future APIs must use contextBridge with scoped methods, never a raw ipcRenderer object.
-export {}
+import { contextBridge, ipcRenderer } from 'electron'
+import {
+  desktopChannels,
+  isDesktopCommand,
+  type CursorPosition,
+  type DemoSnapshot,
+  type DesktopApi
+} from '../shared/desktop-api'
+
+/** Exposes only demo intents and subscriptions, never raw IPC or native window operations. */
+const desktop: DesktopApi = {
+  getSnapshot: () => ipcRenderer.invoke(desktopChannels.snapshot),
+  command: (command) => {
+    if (!isDesktopCommand(command)) return Promise.reject(new Error('Unsupported desktop command.'))
+    return ipcRenderer.invoke(desktopChannels.command, command)
+  },
+  onSnapshot: (listener) => {
+    const handler = (_event: Electron.IpcRendererEvent, snapshot: DemoSnapshot): void => {
+      listener(snapshot)
+    }
+    ipcRenderer.on(desktopChannels.changed, handler)
+    return () => ipcRenderer.removeListener(desktopChannels.changed, handler)
+  },
+  onCursor: (listener) => {
+    const handler = (_event: Electron.IpcRendererEvent, position: CursorPosition): void => {
+      listener(position)
+    }
+    ipcRenderer.on(desktopChannels.cursor, handler)
+    return () => ipcRenderer.removeListener(desktopChannels.cursor, handler)
+  }
+}
+
+contextBridge.exposeInMainWorld('desktop', desktop)
