@@ -1,9 +1,19 @@
-/* This shared scaffold palette is a placeholder, not the final game's visual identity. */
+/* Native and document backgrounds must both be transparent for the desktop to remain visible. */
 :root {
   color-scheme: dark;
-  font-family: 'Segoe UI', sans-serif;
-  color: #f8fafc;
-  background-color: #0f172a;
+  --pixel-ink: #101010;
+  --pixel-background: #202020;
+  --pixel-panel: #303030;
+  --pixel-edge: #494949;
+  --pixel-shade: #252525;
+  --pixel-paper: #f5f5f5;
+  --pixel-frame-shadow: 4px 4px 0 var(--pixel-ink);
+  /* Scoped CSS cursor artwork never changes or repositions the Windows system cursor. */
+  --pixel-pointer: url('./pixel-cursor.svg') 0 0;
+  font-family: 'Press Start 2P', ui-monospace, monospace;
+  font-weight: 400;
+  color: var(--pixel-paper);
+  background-color: transparent;
 }
 
 *,
@@ -14,6 +24,6 @@
 
 body {
   margin: 0;
-  min-width: 320px;
   min-height: 100vh;
+  overflow: hidden;
 }
