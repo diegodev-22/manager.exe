@@ -3,7 +3,13 @@ import {
   transitionGameState,
   type GameState
 } from '../shared/game/game-state'
-import type { DemoSnapshot, DesktopCommand } from '../shared/desktop-api'
+import type {
+  DemoMessage,
+  DemoSnapshot,
+  DesktopCommand,
+  DisplayMetrics,
+  WorkAreaInsets
+} from '../shared/desktop-api'
 
 /** Opaque demo session owned by this controller; clicks have no minigame scoring rules yet. */
 export interface DemoSession {
@@ -35,9 +41,19 @@ export class DemoController {
   private revision = 0
   private activationToken = 0
   private activating = false
-  private message: string | null = null
+  private message: DemoMessage | null = null
+  private workAreaInsets: WorkAreaInsets
+  private displayMetrics: DisplayMetrics
 
-  constructor(private readonly desktop: DemoDesktop) {}
+  /** Takes initial display metadata by value; the caller owns desktop effects and future refreshes. */
+  constructor(
+    private readonly desktop: DemoDesktop,
+    initialWorkAreaInsets: WorkAreaInsets,
+    initialDisplayMetrics: DisplayMetrics
+  ) {
+    this.workAreaInsets = { ...initialWorkAreaInsets }
+    this.displayMetrics = { ...initialDisplayMetrics }
+  }
 
   /** Returns presentation data only; the session reference never leaves the owning process. */
   getSnapshot(): DemoSnapshot {
@@ -46,8 +62,31 @@ export class DemoController {
       status: this.state.status,
       hits: 'session' in this.state ? this.state.session.hits : 0,
       activating: this.activating,
-      message: this.message
+      message: this.message,
+      workAreaInsets: { ...this.workAreaInsets },
+      displayMetrics: { ...this.displayMetrics }
     }
+  }
+
+  /** Publishes layout/monitor metadata atomically without changing lifecycle or the session reference. */
+  updateDisplayMetrics(insets: WorkAreaInsets, metrics: DisplayMetrics): void {
+    if (this.state.status === 'exiting') return
+    if (
+      insets.top === this.workAreaInsets.top &&
+      insets.right === this.workAreaInsets.right &&
+      insets.bottom === this.workAreaInsets.bottom &&
+      insets.left === this.workAreaInsets.left &&
+      metrics.widthPx === this.displayMetrics.widthPx &&
+      metrics.heightPx === this.displayMetrics.heightPx &&
+      metrics.refreshRateHz === this.displayMetrics.refreshRateHz &&
+      metrics.scaleFactor === this.displayMetrics.scaleFactor &&
+      metrics.detectingResolution === this.displayMetrics.detectingResolution
+    )
+      return
+    this.workAreaInsets = { ...insets }
+    this.displayMetrics = { ...metrics }
+    // Layout-only updates need a fresh revision so old async command replies cannot undo them.
+    this.publish()
   }
 
   /** Applies a menu intent; duplicate or unsupported actions do not restart a session. */
@@ -56,7 +95,13 @@ export class DemoController {
     if (command === 'exit') {
       this.shutdown()
     } else if (command === 'pause') {
-      this.interrupt('Paused. Resume when you are ready.')
+      this.interrupt('paused')
+    } else if (!this.activating && (command === 'open-settings' || command === 'close-settings')) {
+      const next = transitionGameState(this.state, { type: command })
+      if (next !== this.state) {
+        this.state = next
+        this.publish()
+      }
     } else if (
       !this.activating &&
       ((command === 'start' && this.state.status === 'ready') ||
@@ -74,6 +119,7 @@ export class DemoController {
           command === 'start' ? { type: 'start', session: { hits: 0 } } : { type: 'resume' }
         )
         this.desktop.enterOverlay()
+        if (token !== this.activationToken) return this.getSnapshot()
         this.activating = false
         this.publish()
       } catch {
@@ -82,7 +128,7 @@ export class DemoController {
           this.activating = false
           this.state = transitionGameState(this.state, { type: 'pause' })
           this.desktop.releaseOverlay()
-          this.message = 'The desktop overlay could not start safely. Please try again.'
+          this.message = 'overlay-failed'
           this.publish()
         }
       }
@@ -91,7 +137,7 @@ export class DemoController {
   }
 
   /** Pauses on focus/display loss without auto-resuming when focus returns. Safe to call repeatedly. */
-  interrupt(message: string): void {
+  interrupt(message: DemoMessage): void {
     if (this.state.status === 'exiting') return
     if (this.state.status !== 'playing' && !this.activating) return
     ++this.activationToken

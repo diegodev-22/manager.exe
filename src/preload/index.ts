@@ -6,9 +6,16 @@ import {
   type DemoSnapshot,
   type DesktopApi
 } from '../shared/desktop-api'
+import { isPreferencesUpdate } from '../shared/preferences'
 
 /** Exposes only demo intents and subscriptions, never raw IPC or native window operations. */
 const desktop: DesktopApi = {
+  getPreferences: () => ipcRenderer.invoke(desktopChannels.preferences),
+  updatePreferences: (update) => {
+    if (!isPreferencesUpdate(update))
+      return Promise.reject(new Error('Unsupported preferences update.'))
+    return ipcRenderer.invoke(desktopChannels.updatePreferences, update)
+  },
   getSnapshot: () => ipcRenderer.invoke(desktopChannels.snapshot),
   command: (command) => {
     if (!isDesktopCommand(command)) return Promise.reject(new Error('Unsupported desktop command.'))

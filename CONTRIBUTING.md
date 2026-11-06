@@ -4,8 +4,8 @@ Thanks for helping build Manager.exe. Whether you are reporting a confusing inst
 accessibility, fixing a bug, or proposing a game mechanic, a clear and focused contribution is welcome.
 
 The project has an early Windows desktop interaction demo: menus, a transparent test surface, and
-input shields are connected to the pure game-state core. There are no finished minigames or
-settings interface. Multi-monitor and real Windows task-switching behavior still need manual
+input shields are connected to the pure game-state core. Theme and language settings are implemented,
+but there are no finished minigames. Multi-monitor and broader Windows desktop acceptance still need manual
 verification. Keep implemented code separate from verified desktop behavior and future plans.
 
 Windows is the only platform targeted for the initial version. macOS and Linux adaptations are
@@ -104,18 +104,26 @@ Use these project conventions consistently rather than renaming files to impose 
 
 For the current implementation, start with these owners:
 
-| File                                                                                         | Responsibility                                                                                    |
-| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| [`src/main/index.ts`](src/main/index.ts)                                                     | Application startup, native windows, overlays, focus, input, IPC ownership, and shutdown cleanup. |
-| [`src/main/demo-controller.ts`](src/main/demo-controller.ts)                                 | Demo session ownership and cancellable lifecycle activation.                                      |
-| [`src/main/desktop-boundaries.ts`](src/main/desktop-boundaries.ts)                           | DIP cursor bounds and privileged sender checks.                                                   |
-| [`src/shared/desktop-api.ts`](src/shared/desktop-api.ts)                                     | Typed bridge contracts and the command allowlist.                                                 |
-| [`src/shared/game/game-state.ts`](src/shared/game/game-state.ts)                             | Pure state transitions and session-reference preservation.                                        |
-| [`src/preload/index.ts`](src/preload/index.ts)                                               | Scoped bridge implementation, with no raw IPC exposed to React.                                   |
-| [`src/renderer/src/App.tsx`](src/renderer/src/App.tsx)                                       | Menu presentation, keyboard navigation, and snapshot subscription.                                |
-| [`src/renderer/src/components/GameSurface.tsx`](src/renderer/src/components/GameSurface.tsx) | Cursor rendering, idle help, and mounted gameplay presentation.                                   |
-| [`src/renderer/src/assets/base.css`](src/renderer/src/assets/base.css)                       | Shared palette, typography defaults, and transparent document baseline.                           |
-| [`src/renderer/src/assets/main.css`](src/renderer/src/assets/main.css)                       | Menu, game surface, edge vignette, hint, and cursor styling.                                      |
+| File                                                                                                       | Responsibility                                                                                    |
+| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| [`src/main/index.ts`](src/main/index.ts)                                                                   | Application startup, native windows, overlays, focus, input, IPC ownership, and shutdown cleanup. |
+| [`src/main/demo-controller.ts`](src/main/demo-controller.ts)                                               | Demo session ownership and cancellable lifecycle activation.                                      |
+| [`src/main/preferences-store.ts`](src/main/preferences-store.ts)                                           | Validated, versioned preference loading and serialized file replacement under userData.           |
+| [`src/main/desktop-boundaries.ts`](src/main/desktop-boundaries.ts)                                         | DIP cursor bounds, work-area insets, and privileged sender checks.                                |
+| [`src/main/windows-display.ts`](src/main/windows-display.ts)                                               | Bounded, read-only Windows primary desktop resolution query in physical pixels.                   |
+| [`src/shared/desktop-api.ts`](src/shared/desktop-api.ts)                                                   | Typed bridge contracts and the command allowlist.                                                 |
+| [`src/shared/preferences.ts`](src/shared/preferences.ts)                                                   | Supported themes/languages, default selection, preference contracts, and validation.              |
+| [`src/shared/game/game-state.ts`](src/shared/game/game-state.ts)                                           | Pure state transitions and session-reference preservation.                                        |
+| [`src/preload/index.ts`](src/preload/index.ts)                                                             | Scoped bridge implementation, with no raw IPC exposed to React.                                   |
+| [`src/renderer/src/App.tsx`](src/renderer/src/App.tsx)                                                     | Menu presentation, keyboard navigation, and snapshot subscription.                                |
+| [`src/renderer/src/components/GameSurface.tsx`](src/renderer/src/components/GameSurface.tsx)               | Cursor rendering, idle help, and mounted gameplay presentation.                                   |
+| [`src/renderer/src/components/SettingsPanel.tsx`](src/renderer/src/components/SettingsPanel.tsx)           | Accessible theme/language choices and return navigation.                                          |
+| [`src/renderer/src/components/DisplayInformation.tsx`](src/renderer/src/components/DisplayInformation.tsx) | Three read-only display values in minimal pixel-framed rows.                                      |
+| [`src/renderer/src/hooks/use-preferences.ts`](src/renderer/src/hooks/use-preferences.ts)                   | Committed presentation preferences, explicit saving, and failure feedback.                        |
+| [`src/renderer/src/menu-navigation.ts`](src/renderer/src/menu-navigation.ts)                               | Shared arrow-key focus navigation without intercepting Tab or system modifiers.                   |
+| [`src/renderer/src/i18n/`](src/renderer/src/i18n/)                                                         | Offline i18next initialization, type augmentation, message mapping, and English/Spanish catalogs. |
+| [`src/renderer/src/assets/base.css`](src/renderer/src/assets/base.css)                                     | Shared palette, typography defaults, and transparent document baseline.                           |
+| [`src/renderer/src/assets/main.css`](src/renderer/src/assets/main.css)                                     | Menu, game surface, edge vignette, hint, and cursor styling.                                      |
 
 ### Files in Git
 
@@ -134,14 +142,15 @@ Keep tests and their tooling removed unless the maintainer explicitly requests t
 
 The core starts in `ready` and accepts these transitions:
 
-| Current state              | Action                     | Next state |
-| -------------------------- | -------------------------- | ---------- |
-| `ready`                    | `start`, with session data | `playing`  |
-| `playing`                  | `pause`                    | `paused`   |
-| `paused`                   | `resume`                   | `playing`  |
-| `paused`                   | `open-settings`            | `settings` |
-| `settings`                 | `close-settings`           | `paused`   |
-| Any state except `exiting` | `exit`                     | `exiting`  |
+| Current state              | Action                     | Next state                          |
+| -------------------------- | -------------------------- | ----------------------------------- |
+| `ready`                    | `start`, with session data | `playing`                           |
+| `ready`                    | `open-settings`            | `settings`, returning to `ready`    |
+| `playing`                  | `pause`                    | `paused`                            |
+| `paused`                   | `resume`                   | `playing`                           |
+| `paused`                   | `open-settings`            | `settings`, returning to `paused`   |
+| `settings`                 | `close-settings`           | Recorded `ready` or `paused` origin |
+| Any state except `exiting` | `exit`                     | `exiting`                           |
 
 Actions that are not allowed leave the same state object unchanged. `exiting` is terminal and
 ignores further actions, including another `exit`.
@@ -149,17 +158,158 @@ ignores further actions, including another `exit`.
 Session data is supplied by the caller, not defined by the core. Pausing, resuming, and visiting
 settings preserve the exact session reference without cloning or mutating it. This does not provide
 deep immutability or persistence; callers own their session data. Closing settings never resumes
-automatically.
+automatically. Settings opened from `ready` carry no session; settings opened from `paused` carry
+the same session and an explicit `returnTo` discriminant. Closing returns to the recorded origin.
 
 The core owns no timers, input listeners, React state, or Electron APIs. `exiting` records a request
 to leave. The desktop controller now connects this lifecycle to menus and owns the opaque demo
-session; the Electron window layer performs cleanup and actual shutdown. The demo does not expose
-settings actions or implement real minigame rules.
+session; the Electron window layer performs cleanup and actual shutdown. The demo exposes settings
+actions but does not implement real minigame rules. Preferences are separate from the game session.
 
 Focus loss, minimization, renderer reload, or display changes pause active play and release the
-input shields. The ordinary menu window remains available for returning to the paused session.
-Only explicit Resume reactivates play. Native cursor confinement and global input hooks are not
+input shields. Losing native focus also minimizes the primary window from ready, paused, settings,
+or play so its display-sized transparent surface cannot remain in front of another application.
+Drop always-on-top and destroy pending/visible shields before minimizing; guard re-entrant native
+blur/minimize callbacks. Windows can report `blur` while the window is already focused during
+restoration: ignore that notification and coalesce other focus-loss checks to the next main-loop
+turn. Cancel the owned check on focus recovery and disposal, then recheck actual native focus before
+minimizing. Keep ready/settings state and unsaved drafts intact. The window stays in
+Windows' normal taskbar/task-switching lifecycle, not hidden or restored by an application timer.
+Only user-driven native restoration brings it back, and only explicit Resume reactivates play.
+Native cursor confinement and global input hooks are not
 used; a visual cursor is clamped to the primary display using Electron DIP coordinates.
+The primary native window spans the display bounds from startup, rather than resizing between a
+small menu window and gameplay. The renderer keeps menu cards compact and shares one screen-edge
+background fade across menus, settings, pause, and play. The window is not movable, exclusive
+fullscreen, or kiosk mode; menu titles do not drag it away from the display edges. Display changes
+realign every view to the current primary bounds. The primary window stays in normal z-order even
+during play; promoting it to always-on-top caused focus/hit-testing regressions in the audited Windows
+environment. Only active secondary input shields use always-on-top. Primary transparent-area hit testing,
+taskbar overlap, and broader task switching remain
+manual Windows acceptance checks; do not infer click-through from visual transparency.
+Within the primary window, use Windows' reported work area for menu layout. The main process
+converts screen-space bounds/workArea to clamped DIP insets, which travel in revisioned snapshots;
+the controller stores this presentation metadata without changing the pure lifecycle or session.
+The initial menu and settings are centered within that area. Pause menus anchor bottom-left with
+a 24–40 DIP responsive margin inside the work area, not against the screen edge or taskbar.
+The full-display vignette remains outside this inset layout so its bands stay on the screen edges.
+Work-area changes refresh the snapshot even while paused or in settings; do not poll native screen
+APIs from React or assume a fixed taskbar height. Auto-hide taskbars still require manual acceptance.
+While minimized or unfocused, update cached display metadata without setting native bounds. Apply
+pending geometry on user-driven focus, changing bounds only if necessary. Overlay activation must
+validate foreground state before preparation/entry, and cancellation identity, lifecycle status, and
+minimization around native side effects. Let the owned focus-loss check settle transient native blur;
+never call `focus`, `show`, or `restore` to recover a pending Play/Resume. Renderer DOM focus restoration
+also waits for a visible, focused document. See the limited executed audit under verification rather
+than assuming these safeguards establish compatibility with every Windows/display configuration.
+
+### Display adaptation and diagnostics
+
+The native window and responsive CSS continue to use the primary display's DIP bounds and Windows
+work area; do not replace those layout units with physical pixels or change Windows display modes.
+Read-only `DisplayMetrics` travels through the existing revisioned, primary-only snapshot. It is not
+a saved preference, editable draft, or game rule. Refresh metadata on display events and user-driven
+focus without restoring a background window or replacing settings drafts.
+
+Electron supplies the nominal display frequency and scale factor. Exact current desktop dimensions
+come from Windows `EnumDisplayDevicesW`/`EnumDisplaySettingsW`, not DIP dimensions multiplied by scale:
+fractional DPI rounding can otherwise add pixels. Main owns a hidden Windows PowerShell invocation
+of fixed local C# interop, with a 5-second deadline, bounded output, and abort on replacement/disposal.
+No renderer strings enter the command; it reads no images, user files, or remote content, needs no
+administrator privileges, and changes no system settings. A blocked/unavailable query shows an
+unavailable value, never guessed dimensions. Unchanged focus returns reuse the resolution cache.
+
+The cursor already uses on-demand `requestAnimationFrame` with transforms outside per-frame React
+state. Leave synchronization to Chromium/Windows; Hz is not a measured FPS target or instantaneous
+VRR rate. Do not add a fixed 60 FPS timer, offscreen-only frame-rate API, GPU-disabling flags, or an
+idle gameplay loop. Settings has only three display rows: FPS, Screen resolution, and Scaling, with
+labels on the left and read-only pixel-framed values on the right. The requested FPS label reports
+monitor Hz; do not present it as measured/guaranteed gameplay FPS. There is no FPS sampling loop,
+extra heading, explanatory paragraph, or permanent saved-status text. Missing/loading values use
+compact glyphs with localized accessible descriptions. Keep settings copy minimal; errors and the
+required discard confirmation remain concise rather than removing their feedback or safeguards.
+Keep more space between settings sections than within choice groups. Read-only values use muted,
+recessed pixel frames and a default cursor, not raised button shadows or hover/pressed effects.
+Preserve text contrast in both themes; do not dim the entire element with opacity or add disabled
+form controls merely to style static information.
+
+No simulation or automatic quality scaler is introduced for the current cursor-only demo. A real
+minigame should separate fixed-step rules from interpolated presentation and measure frame times
+before adding quality adaptation. Do not claim performance improvements without measurements.
+
+References: [Electron Display](https://www.electronjs.org/docs/latest/api/structures/display),
+[Windows display modes](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-enumdisplaysettingsw),
+and [animation frames](https://developer.mozilla.org/en-US/docs/Web/API/Window/requestAnimationFrame).
+
+### Preferences and localization
+
+- `PreferencesStore` owns `settings/preferences.json` under Electron's `app.getPath('userData')`.
+  The version-1 schema accepts only the two themes (`dark`, `light`) and languages (`en`, `es`).
+  The renderer cannot choose paths or use a generic file API. Main-process IPC validates the sender,
+  argument count, update keys, values, and that the lifecycle is currently in `settings`.
+- On first launch, the theme is dark. Use the first supported base language in
+  `app.getPreferredSystemLanguages()` (for example, `es-PE` becomes `es`); otherwise use English.
+  A saved explicit choice wins over the system language on future launches. There is no system-theme
+  mode in this initial scope, and changing the theme never changes Windows or the desktop background.
+- The settings panel owns an unapplied draft. Save appears only when choices differ from the applied
+  preferences; selecting an option never changes the global theme/language or writes to disk. Save
+  submits both choices together and only applies them after successful persistence. On failure,
+  the applied preferences stay unchanged and the editable draft remains available for retry.
+  Writes are serialized, use unique temporary
+  files in the same directory, and replace the target by rename. Loading is capped at 4 KiB. Missing
+  files are normal; corrupt, unsupported, or unreadable files fall back with a localized warning and
+  are only replaced after an explicit Save. Failed saves show a localized warning.
+  A saving indicator is not a guarantee against power loss or
+  forced process termination; wait for saving to finish before closing the application.
+- `i18next` and `react-i18next` run only in the renderer. Both small catalogs are bundled in
+  `src/renderer/src/i18n/locales/` and initialized before React mounts, with `supportedLngs` set to
+  English/Spanish and `fallbackLng` explicitly set to English. No HTTP backend, remote translation
+  service, browser-storage detector, or extra localization tooling is needed.
+- Use stable semantic keys and complete sentences, not concatenated translated fragments. Add every
+  player-facing string, error, hint, title, and accessible label to both catalogs. Proper names,
+  technical key names such as Esc, and the language autonyms English/Español remain unchanged.
+  The English catalog supplies i18next's `CustomTypeOptions`; the Spanish catalog must satisfy its
+  shape. Use typed selectors with `useTranslation`, not unchecked string keys or raw translated HTML.
+  React escapes interpolated text; `escapeValue: false` is scoped to this React-rendered content.
+- Keep lifecycle/native messages as typed codes in shared contracts and translate them in React.
+  Update the document's `lang`, CSS theme tokens, and `color-scheme` with the current preferences.
+  Keep transparent game and secondary-shield backgrounds unchanged in both themes.
+- Menus and settings use fully opaque cards inside a transparent menu surface. Never reduce the
+  card's opacity or put readable UI directly on the desktop: its unknown colors cannot provide a
+  stable text contrast. Keep pixel frames/shadows and the local arcade font for headings, with a
+  system font for larger controls and supporting text. The discard dialog is also opaque; blur and
+  desktop capture are not needed. Use shared CSS tokens for control borders, focus rings, and primary
+  actions, retaining native radio indicators so selection is not conveyed by color alone.
+  Static sRGB calculations for the current active menu palette pairs give at least 6.33:1 for the
+  evaluated text and 3.44:1 for evaluated control borders. These palette calculations exclude disabled
+  controls and do not establish rendered accessibility or Windows desktop acceptance. Check both themes
+  over bright, dark, and visually busy desktops, including scrolling and keyboard focus. No new
+  click-through behavior is configured; transparent-margin hit testing remains a manual Windows check.
+  Preserve initial and restored logical focus, but reveal its menu ring only after arrow-key or
+  Tab/Shift+Tab navigation. Pointer-down switches back to pointer presentation without blurring the
+  control. Do not globally suppress outlines or remove keyboard focusability to hide startup rings.
+- Settings uses labeled native radio groups. Up/Down moves between groups/actions, and Left/Right
+  moves focus within the current group without selecting. Override the native radio arrow behavior
+  so only Enter/Space or a click selects an option; Tab/Shift+Tab remains native. Clicking a label
+  selects its draft option. Back or unmodified Esc returns directly if there are no changes;
+  otherwise it opens a native modal dialog with Keep editing (the safe initial focus) and Discard
+  and return. Escape in the dialog keeps the draft and returns focus to the originating control.
+  Only confirmed discard returns without saving. While saving, editing and Back are temporarily
+  unavailable to avoid leaving an in-flight submission. Native application close remains available.
+  A successful Save keeps settings open, hides Save until another choice changes, and moves focus to
+  the remaining Back button only in the foreground. Back/Esc return to the recorded menu origin and
+  restore focus to Settings; a pause-origin menu is bottom-left, while a ready-origin menu is centered.
+  A failed Save stays in settings with its draft intact. Neither saving nor leaving settings resumes
+  gameplay. Language changes must not remount controls.
+
+References: [react-i18next setup](https://react.i18next.com/getting-started),
+[i18next configuration](https://www.i18next.com/overview/configuration-options),
+[i18next TypeScript](https://www.i18next.com/overview/typescript),
+[Electron userData](https://www.electronjs.org/docs/latest/api/app#appgetpathname),
+[Electron preferred languages](https://www.electronjs.org/docs/latest/api/app#appgetpreferredsystemlanguages),
+and [WAI keyboard guidance](https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html).
+For palette decisions, see [WAI text contrast](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html)
+and [WAI non-text contrast](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html).
 
 ## Coding conventions
 
@@ -399,10 +549,41 @@ Do not add or execute tests, install a test runner, or launch scripted Electron/
 unless the user explicitly requests testing. The maintainer performs manual gameplay checks.
 Formatting, lint, type checking, and compilation remain available static checks.
 
+A maintainer-authorized temporary focus audit passed 16 pure/controller checks and 13 desktop
+scenarios on Windows with one display at 175% scaling. The desktop scenarios used native Play/Resume
+clicks and Escape, actual Alt+Tab round trips, Win+Tab departure followed by native restoration,
+clicks/typing in an isolated target window, settings drafts/discard/save, and pending-activation races.
+A display-metrics notification while minimized was simulated; display hardware/DPI were not changed.
+Temporary test scripts, instrumentation, and isolated profiles were removed afterward. No permanent
+test runner, probes, or CI were added. Multi-monitor shielding, other Windows versions, and taskbar
+selection behavior beyond the tested native restoration paths remain unverified.
+
 For interface and desktop changes, describe what the maintainer should check: menu controls,
 Escape pause, explicit resume, Alt+Tab/Win+Tab, transparent click shielding, cursor visibility,
 display changes, and complete shutdown. Do not claim those scenarios were verified just because
 the app compiled. Automated testing, coverage reporting, and CI workflows are not configured.
+For task switching, manually check ready/paused/settings (including a discard dialog), active play,
+and switching away immediately after Play/Resume. Click and type in the other application; Manager.exe
+must remain minimized with no shields or edge shading. Restore it via Alt+Tab/Win+Tab or the taskbar,
+confirm state/draft preservation and explicit resume, and change display layout/DPI while minimized
+to confirm that geometry updates cannot restore it by themselves.
+For settings, manually check initial and paused entry/return, mouse and arrow-key controls, focus
+retention after saving a language change, English/Spanish accents and text wrapping, both theme contrasts,
+unchanged desktop transparency, saved choices after restart, and visible read/write failure feedback.
+Also check that changing a choice alone does not apply it, Save appears only for real differences,
+failed saves retain the draft, and Back/Esc supports both continuing to edit and confirmed discard.
+After saving from either menu origin, settings must remain open with the saved theme/language applied,
+Save hidden, and usable keyboard focus. Editing again must reveal Save; Back/Esc after a successful
+save must leave without a discard prompt unless new changes were made, and never resume play.
+For display diagnostics, compare Hz, current resolution, and scaling with Windows Advanced display
+settings at 100%, 125%, 150%, and 175% scaling where available, including portrait and high-refresh
+modes. Verify read-only values, localized wrapping, scrolling on small screens, and no Save/discard
+prompt from diagnostics alone. Change resolution/Hz/DPI or the primary display while minimized;
+Manager.exe must stay minimized, refresh its readings on return, preserve the draft, and not resume.
+Check left-label/right-value alignment and pixel frames in both themes. Nominal Hz may be rounded by
+Windows/Electron, and VRR does not guarantee a matching callback/presentation rate.
+The native display readings and later settings refinements, including keeping settings open after
+Save, were not covered by the earlier temporary focus audit.
 
 A successful build does not establish that desktop input, focus handling, accessibility, or an
 installer works correctly. Record those checks separately, including anything you could not verify.

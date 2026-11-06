@@ -1,23 +1,42 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { DemoSnapshot, DesktopCommand } from '../../shared/desktop-api'
+import type { PreferencesSnapshot } from '../../shared/preferences'
 import fontLicenseUrl from './assets/fonts/OFL.txt?url&no-inline'
 import GameSurface from './components/GameSurface'
+import SettingsPanel from './components/SettingsPanel'
+import { usePreferences } from './hooks/use-preferences'
+import { demoMessageKeys } from './i18n'
+import { navigateMenu } from './menu-navigation'
 
-/**
- * Presents the authoritative main-process state without owning simulation or privileged APIs.
- * Shield pages intentionally render no controls and receive no preload bridge.
- */
-function App(): React.JSX.Element {
-  const shield = new URLSearchParams(window.location.search).get('surface') === 'shield'
-  return shield ? <div className="input-shield" aria-hidden="true" /> : <DemoMenu />
+/** Saved presentation preferences are loaded before the first menu render. */
+interface AppProps {
+  initialPreferences: PreferencesSnapshot
 }
 
-/** Owns bridge subscriptions and the local error UI; StrictMode cleanup prevents duplicate listeners. */
-function DemoMenu(): React.JSX.Element {
+/** Presents main-process state. Shield pages intentionally receive no controls or preload bridge. */
+function App({ initialPreferences }: AppProps): React.JSX.Element {
+  const shield = new URLSearchParams(window.location.search).get('surface') === 'shield'
+  return shield ? (
+    <div className="input-shield" aria-hidden="true" />
+  ) : (
+    <DemoMenu initialPreferences={initialPreferences} />
+  )
+}
+
+/** Owns bridge subscriptions and errors; StrictMode cleanup prevents duplicate listeners. */
+function DemoMenu({ initialPreferences }: AppProps): React.JSX.Element {
+  const { t } = useTranslation()
+  const { preferences, issue, saving, savePreferences, clearSaveIssue } =
+    usePreferences(initialPreferences)
   const [snapshot, setSnapshot] = useState<DemoSnapshot | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<'connection' | 'command' | null>(null)
+  const [keyboardNavigation, setKeyboardNavigation] = useState(false)
   const menuButton = useRef<HTMLButtonElement>(null)
+  const settingsButton = useRef<HTMLButtonElement>(null)
+  const previousStatus = useRef<DemoSnapshot['status'] | undefined>(undefined)
   const playing = snapshot?.status === 'playing'
+  const status = snapshot?.status
 
   useEffect(() => {
     let active = true
@@ -31,8 +50,7 @@ function DemoMenu(): React.JSX.Element {
       .getSnapshot()
       .then(accept)
       .catch(() => {
-        if (active)
-          setError('The desktop connection is unavailable. Close this window with Alt+F4.')
+        if (active) setError('connection')
       })
     return () => {
       active = false
@@ -41,89 +59,132 @@ function DemoMenu(): React.JSX.Element {
   }, [])
 
   useEffect(() => {
-    if (!playing) menuButton.current?.focus()
-  }, [playing, snapshot?.status])
+    const returningFromSettings = previousStatus.current === 'settings'
+    const focusMenu = (): void => {
+      if (document.hidden || !document.hasFocus() || (status !== 'ready' && status !== 'paused'))
+        return
+      // Restore logical focus only in the foreground; a background pause must not reactivate Electron.
+      if (returningFromSettings) settingsButton.current?.focus()
+      else menuButton.current?.focus()
+    }
+    focusMenu()
+    previousStatus.current = status
+    // User-driven native restoration may happen after the paused DOM has already mounted while hidden.
+    window.addEventListener('focus', focusMenu)
+    return () => window.removeEventListener('focus', focusMenu)
+  }, [status])
 
-  /** Sends only allowlisted intents; a failed command never silently resumes or restarts the game. */
+  /** Sends allowlisted intents; stored error codes are translated using the currently selected language. */
   async function request(command: DesktopCommand): Promise<void> {
     setError(null)
     try {
       const next = await window.desktop.command(command)
+      if (command === 'close-settings' && next.status !== 'settings') clearSaveIssue()
       setSnapshot((current) => (!current || next.revision >= current.revision ? next : current))
-      if (
-        (command === 'start' || command === 'resume') &&
-        next.status !== 'playing' &&
-        next.message
-      ) {
-        setError(next.message)
-      }
     } catch {
-      setError('The action could not be completed. Please try again, or close with Alt+F4.')
+      setError('command')
     }
   }
 
-  /**
-   * Cycles focus through enabled menu buttons without intercepting system key combinations.
-   * Enter and Space keep the buttons' native activation behavior, avoiding duplicate commands.
-   */
-  function navigateMenu(event: KeyboardEvent<HTMLDivElement>): void {
-    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
-    const previous = event.key === 'ArrowUp' || event.key === 'ArrowLeft'
-    const next = event.key === 'ArrowDown' || event.key === 'ArrowRight'
-    if (!previous && !next) return
-
-    const buttons = Array.from(
-      event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')
-    )
-    if (buttons.length === 0) return
-    event.preventDefault()
-    const currentIndex = buttons.findIndex((button) => button === document.activeElement)
-    const direction = previous ? -1 : 1
-    let nextIndex = previous ? buttons.length - 1 : 0
-    if (currentIndex >= 0) {
-      nextIndex = (currentIndex + direction + buttons.length) % buttons.length
+  /** Reveals focus only after navigation input, not after startup or pointer-driven focus restoration. */
+  function revealKeyboardFocus(event: KeyboardEvent<HTMLElement>): void {
+    if (event.altKey || event.ctrlKey || event.metaKey) return
+    if (event.key === 'Tab' || (!event.shiftKey && event.key.startsWith('Arrow'))) {
+      setKeyboardNavigation(true)
     }
-    buttons[nextIndex]?.focus()
   }
 
   if (playing) return <GameSurface />
 
-  const paused = snapshot?.status === 'paused'
-  const busy = !snapshot || snapshot.activating || snapshot.status === 'exiting'
+  const paused = status === 'paused'
+  const busy = !snapshot || snapshot.activating || status === 'exiting'
+  const notice = snapshot?.message ? demoMessageKeys[snapshot.message] : null
+  const insets = snapshot?.workAreaInsets
   return (
     <>
-      {/* Ship attribution as a separate asset without adding legal or promotional text to the menu. */}
-      <link rel="license" href={fontLicenseUrl} title="Press Start 2P font license" />
-      <main className="menu-surface">
-        <section className="menu-panel" aria-labelledby="menu-title">
-          <h1 id="menu-title">Manager.exe</h1>
-          <div
-            className="menu-actions"
-            role="group"
-            aria-label="Game menu"
-            onKeyDown={navigateMenu}
+      {/* Keep the complete font attribution bundled without visible legal text in the menu. */}
+      <link rel="license" href={fontLicenseUrl} title="Press Start 2P" />
+      <main
+        className="menu-surface"
+        data-keyboard-navigation={keyboardNavigation}
+        onKeyDownCapture={revealKeyboardFocus}
+        onPointerDownCapture={() => setKeyboardNavigation(false)}
+      >
+        <div
+          className="menu-layout"
+          data-position={paused ? 'paused' : 'centered'}
+          style={{
+            top: insets?.top ?? 0,
+            right: insets?.right ?? 0,
+            bottom: insets?.bottom ?? 0,
+            left: insets?.left ?? 0
+          }}
+        >
+          <section
+            className={status === 'settings' ? 'menu-panel settings-panel' : 'menu-panel'}
+            aria-labelledby="menu-title"
           >
-            <button
-              ref={menuButton}
-              disabled={busy}
-              aria-busy={snapshot?.activating ?? false}
-              onClick={() => void request(paused ? 'resume' : 'start')}
-            >
-              {paused ? 'Resume' : 'Play'}
-            </button>
-            <button disabled title="Settings are not available yet">
-              Settings
-            </button>
-            <button disabled={snapshot?.status === 'exiting'} onClick={() => void request('exit')}>
-              Exit
-            </button>
-          </div>
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          )}
-        </section>
+            {snapshot?.status === 'settings' ? (
+              <SettingsPanel
+                preferences={preferences}
+                displayMetrics={snapshot.displayMetrics}
+                saving={saving}
+                onSave={savePreferences}
+                onBack={() => void request('close-settings')}
+              />
+            ) : (
+              <>
+                <h1 id="menu-title">Manager.exe</h1>
+                <div
+                  className="menu-actions"
+                  role="group"
+                  aria-label={t(($) => $.menu.label)}
+                  onKeyDown={navigateMenu}
+                >
+                  <button
+                    className="button-primary"
+                    ref={menuButton}
+                    disabled={busy}
+                    aria-busy={snapshot?.activating ?? false}
+                    onClick={() => void request(paused ? 'resume' : 'start')}
+                  >
+                    {paused ? t(($) => $.menu.resume) : t(($) => $.menu.play)}
+                  </button>
+                  <button
+                    ref={settingsButton}
+                    disabled={busy}
+                    onClick={() => void request('open-settings')}
+                  >
+                    {t(($) => $.menu.settings)}
+                  </button>
+                  <button disabled={status === 'exiting'} onClick={() => void request('exit')}>
+                    {t(($) => $.menu.exit)}
+                  </button>
+                </div>
+                {notice && (
+                  <p
+                    className={snapshot?.message === 'overlay-failed' ? 'error' : 'menu-notice'}
+                    role="status"
+                  >
+                    {t(($) => $.notices[notice])}
+                  </p>
+                )}
+              </>
+            )}
+            {issue && (
+              <p className="error" role="alert">
+                {issue === 'load-failed'
+                  ? t(($) => $.errors.loadPreferences)
+                  : t(($) => $.errors.savePreferences)}
+              </p>
+            )}
+            {error && (
+              <p className="error" role="alert">
+                {t(($) => $.errors[error])}
+              </p>
+            )}
+          </section>
+        </div>
       </main>
     </>
   )

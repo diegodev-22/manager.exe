@@ -11,25 +11,27 @@
 
 #root,
 .input-shield,
-.game-surface {
+.game-surface,
+.menu-surface {
   width: 100vw;
   height: 100vh;
 }
 
-/* Only the menu is opaque. Gameplay and secondary shields must keep the live desktop visible. */
+/* Only menu cards are opaque. Their margins, gameplay, and secondary shields expose the desktop. */
 .input-shield,
 .game-surface {
   cursor: none;
   user-select: none;
 }
 
-.game-surface {
+.game-surface,
+.menu-surface {
   --edge-depth: clamp(48px, 14vmin, 160px);
   --edge-fade: rgb(0 0 0 / 65%) 0%, rgb(0 0 0 / 32%) 28%, rgb(0 0 0 / 10%) 62%, transparent 100%;
   position: relative;
   isolation: isolate;
-  /* Paint directly on the surface, never behind the transparent window in a negative layer.
-     Backgrounds stay below all game content, and each edge band ends before the clear center. */
+  /* Both views cover the primary display from startup. Paint below their content, not behind
+     the transparent window in a negative layer; each edge band ends before the clear center. */
   background:
     linear-gradient(to right, var(--edge-fade)) left / var(--edge-depth) 100% no-repeat,
     linear-gradient(to left, var(--edge-fade)) right / var(--edge-depth) 100% no-repeat,
@@ -38,36 +40,61 @@
 }
 
 .menu-surface {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  padding: 24px;
-  overflow-y: auto;
-  background: var(--pixel-background);
+  font-family: var(--menu-font);
+  font-size: 16px;
+  line-height: 1.5;
   cursor: var(--pixel-pointer), default;
 }
 
+.menu-layout {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  /* Main supplies work-area insets; keep the card and its halo away from taskbars and screen edges. */
+  padding: clamp(24px, 3vmin, 40px);
+  overflow-y: auto;
+  scroll-padding: clamp(24px, 3vmin, 40px);
+}
+
 .menu-panel {
-  width: min(100%, 360px);
+  flex-shrink: 0;
+  width: min(100%, 408px);
   /* Auto margins center short menus but collapse on small screens so controls remain scrollable. */
   margin: auto;
+  padding: 24px;
+  border: 3px solid var(--pixel-border);
+  /* Keep the content fully opaque: text contrast must not depend on desktop colors or blur. */
+  background: var(--pixel-background);
+  /* Static outer shadows darken the desktop nearest every edge and fade away behind the card.
+     Keep this menu-only: the discard dialog has no added halo or dimming backdrop. */
+  box-shadow:
+    var(--pixel-card-shadow),
+    0 0 12px 6px rgb(0 0 0 / 70%),
+    0 0 24px 3px rgb(0 0 0 / 45%);
   text-align: center;
 }
 
+.menu-layout[data-position='paused'] .menu-panel {
+  /* Auto top margin anchors short pause cards at the bottom, but collapses for tall scrollable cards. */
+  margin: auto auto 0 0;
+}
+
 h1 {
-  margin: 0 0 32px;
+  margin: 0 0 24px;
   color: var(--pixel-paper);
-  font-size: clamp(18px, 5.5vw, 28px);
+  font-family: var(--pixel-title-font);
+  font-size: clamp(18px, 5vw, 26px);
   font-weight: 400;
   line-height: 1.6;
-  text-shadow: 3px 3px 0 var(--pixel-ink);
-  -webkit-app-region: drag;
+  text-shadow: 3px 3px 0 var(--pixel-title-shadow);
+  overflow-wrap: anywhere;
 }
 
 .menu-actions {
   display: grid;
   gap: 12px;
-  width: min(100%, 248px);
+  width: min(100%, 272px);
   margin: 0 auto;
 }
 
@@ -78,8 +105,9 @@ button,
 }
 
 button {
-  min-height: 52px;
-  padding: 12px 16px;
+  min-height: 48px;
+  padding: 8px 16px;
+  border-color: var(--pixel-border);
   border-radius: 0;
   color: var(--pixel-paper);
   background: var(--pixel-panel);
@@ -88,29 +116,51 @@ button {
     inset 0 -3px 0 var(--pixel-shade),
     var(--pixel-frame-shadow);
   font: inherit;
-  font-size: 12px;
-  line-height: 1.7;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
   cursor: var(--pixel-pointer), pointer;
   -webkit-app-region: no-drag;
 }
 
-button:hover:not(:disabled) {
+button:hover:not(:disabled, [aria-disabled='true']) {
   background: var(--pixel-edge);
 }
 
-button:active:not(:disabled) {
+button:active:not(:disabled, [aria-disabled='true']) {
   box-shadow:
     inset 0 3px 0 var(--pixel-shade),
     2px 2px 0 var(--pixel-ink);
 }
 
-button:focus-visible {
-  outline: 3px solid var(--pixel-paper);
-  outline-offset: 5px;
+.button-primary {
+  border-color: var(--pixel-primary-background);
+  color: var(--pixel-primary-text);
+  background: var(--pixel-primary-background);
+  box-shadow: var(--pixel-frame-shadow);
 }
 
-button:disabled {
-  color: #858585;
+.button-primary:hover:not(:disabled, [aria-disabled='true']) {
+  background: var(--pixel-primary-hover);
+}
+
+/* Startup focus supports navigation but is not a keyboard-selection cue until arrows or Tab are used.
+   Scope the override to menu controls; never remove focus styling globally. */
+.menu-surface[data-keyboard-navigation='false'] button:focus-visible,
+.menu-surface[data-keyboard-navigation='false'] input[type='radio']:focus-visible {
+  outline: none;
+}
+
+.menu-surface[data-keyboard-navigation='true'] button:focus-visible,
+.menu-surface[data-keyboard-navigation='true'] .settings-option:has(input:focus-visible) {
+  outline: 3px solid var(--pixel-focus);
+  outline-offset: 3px;
+}
+
+button:disabled,
+button[aria-disabled='true'] {
+  color: var(--pixel-disabled);
   cursor: var(--pixel-pointer), default;
 }
 
@@ -119,10 +169,186 @@ button[aria-busy='true'] {
 }
 
 .error {
-  margin: 24px 0 0;
-  color: #ffb4b4;
+  margin: 16px 0 0;
+  color: var(--pixel-error);
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.settings-panel h1 {
+  margin-bottom: var(--settings-section-gap);
+  font-size: clamp(18px, 5.5vw, 22px);
+}
+
+.settings-panel {
+  --settings-section-gap: clamp(20px, 3vmin, 28px);
+  width: min(100%, 480px);
+}
+
+.settings-controls {
+  display: grid;
+  gap: var(--settings-section-gap);
+  text-align: left;
+}
+
+.settings-controls fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.settings-controls legend {
+  margin-bottom: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.settings-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.settings-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px;
+  border: 2px solid var(--pixel-border);
+  background: var(--pixel-panel);
+  font-size: 16px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  cursor: var(--pixel-pointer), pointer;
+}
+
+.settings-option:has(input:checked) {
+  box-shadow: inset 0 -3px 0 var(--pixel-shade);
+  border-color: var(--pixel-paper);
+}
+
+.settings-option:hover:not(:has(input:disabled)) {
+  background: var(--pixel-edge);
+}
+
+.settings-option:has(input:disabled) {
+  color: var(--pixel-disabled);
+  cursor: var(--pixel-pointer), default;
+}
+
+.settings-option input {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--pixel-paper);
+  cursor: inherit;
+}
+
+.menu-notice {
+  margin: 16px 0 0;
+  color: var(--pixel-muted);
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.settings-actions button {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Use the same section rhythm for choices and read-only rows, with smaller gaps inside each group. */
+.display-metrics {
+  display: grid;
+  gap: var(--settings-section-gap);
+  margin: 0;
+  font-size: 16px;
+}
+
+.display-metrics > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  gap: 12px;
+}
+
+.display-metrics dt {
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.display-metrics dd {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 44px;
+  margin: 0;
+  padding: 8px;
+  /* Muted, recessed frames distinguish readable data from raised buttons, without fading text
+     through opacity or falsely disabling semantic text. No hover/pressed styling is applied. */
+  border: 2px solid var(--pixel-readonly-border);
+  color: var(--pixel-muted);
+  background: var(--pixel-readonly-background);
+  box-shadow: inset 0 2px 0 rgb(0 0 0 / 12%);
+  font-family: var(--pixel-title-font);
   font-size: 10px;
   line-height: 1.8;
+  text-align: center;
+  overflow-wrap: anywhere;
+  cursor: var(--pixel-pointer), default;
+}
+
+/* A native modal contains focus and makes the settings form inert until a decision is made. */
+.discard-dialog {
+  width: min(360px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  margin: auto;
+  padding: 20px;
+  border: 3px solid var(--pixel-border);
+  color: var(--pixel-paper);
+  background: var(--pixel-background);
+  box-shadow: var(--pixel-card-shadow);
+  font-family: var(--menu-font);
+  overflow-y: auto;
+  cursor: var(--pixel-pointer), default;
+}
+
+.discard-dialog::backdrop {
+  /* Suppress the browser's default dimming without removing native modal focus containment. */
+  background: transparent;
+}
+
+.discard-dialog h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.discard-dialog p {
+  margin: 16px 0 20px;
+  font-size: 16px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.discard-actions {
+  display: grid;
+  gap: 12px;
 }
 
 .game-hud {
@@ -198,11 +424,5 @@ button[aria-busy='true'] {
 @media (prefers-reduced-motion: reduce) {
   .game-hud {
     transition: none;
-  }
-}
-
-@media (max-height: 360px) {
-  h1 {
-    margin-bottom: 24px;
   }
 }
