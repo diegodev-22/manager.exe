@@ -3,9 +3,10 @@
 Thanks for helping build Manager.exe. Whether you are reporting a confusing instruction, improving
 accessibility, fixing a bug, or proposing a game mechanic, a clear and focused contribution is welcome.
 
-The project is still at the foundation stage. The game-state core has unit tests but is not connected
-to the application window. Desktop overlays, gameplay, and menus are planned, not implemented.
-Please keep that distinction clear in code, discussions, and documentation.
+The project has an early Windows desktop interaction demo: menus, a transparent test surface, and
+input shields are connected to the pure game-state core. There are no finished minigames or
+settings interface. Multi-monitor and real Windows task-switching behavior still need manual
+verification. Keep implemented code separate from verified desktop behavior and future plans.
 
 Windows is the only platform targeted for the initial version. macOS and Linux adaptations are
 future possibilities, not part of the current scope. Proposals to add platform support should be
@@ -36,8 +37,10 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-The application currently opens an empty window. No external service, account, environment file, or
-administrator privileges are needed for the scaffold.
+The application opens the demo menu. No external service, account, environment file, or administrator
+privileges are needed. Play temporarily shields all displays from clicks; Escape pauses and
+Alt+F4 remains available. Manual gameplay checks are performed by the maintainer; see
+[verification](#verification) for the current policy.
 
 If pnpm is not installed, replace `pnpm` with `npx --yes pnpm@10.34.9` in these commands.
 
@@ -60,15 +63,17 @@ git switch --no-track -c feature/short-description upstream/develop
 
 ## Project architecture
 
-| Location                      | Responsibility                                                                     |
-| ----------------------------- | ---------------------------------------------------------------------------------- |
-| `src/main/`                   | Electron windows, application lifecycle, and future privileged desktop operations. |
-| `src/preload/`                | A narrow, explicitly scoped bridge for desktop APIs when needed.                   |
-| `src/renderer/src/`           | React components, CSS, and future game presentation.                               |
-| `src/renderer/src/game/core/` | Pure TypeScript lifecycle rules, independent of React and Electron.                |
-| `tests/unit/`                 | Versioned unit tests that import and exercise the production implementation.       |
-| `build/`                      | Versioned packaging resources, including the Windows icon.                         |
-| `out/` and `dist/`            | Generated application and distribution output; never edit or commit these.         |
+| Location                       | Responsibility                                                                 |
+| ------------------------------ | ------------------------------------------------------------------------------ |
+| `src/main/`                    | Electron windows, application lifecycle, and privileged desktop operations.    |
+| `src/preload/`                 | A narrow, typed bridge for demo intents and state/cursor subscriptions.        |
+| `src/shared/`                  | Serializable bridge contracts, command validation, and pure shared game rules. |
+| `src/renderer/src/`            | React components, CSS, and future game presentation.                           |
+| `src/shared/game/`             | Pure TypeScript lifecycle rules, independent of React, DOM, and Electron.      |
+| `src/renderer/src/components/` | React components such as the gameplay surface.                                 |
+| `src/renderer/src/assets/`     | CSS, the cursor sprite, and locally bundled fonts with their licenses.         |
+| `build/`                       | Versioned packaging resources, including the Windows icon.                     |
+| `out/` and `dist/`             | Generated application and distribution output; never edit or commit these.     |
 
 Keep Electron and Node.js privileges out of the renderer. Future game rules should be independent
 of React, the DOM, and Electron where practical, so they can be tested without a desktop window.
@@ -76,6 +81,54 @@ Do not add an architecture layer or library before there is a concrete need for 
 
 Keep shared game logic portable where practical and isolate Windows-specific integration in the
 desktop layer. This prepares for possible future adaptations without adding unused platform code.
+
+### Layout and naming
+
+Keep the electron-vite process boundaries: `main` owns desktop effects, `preload` exposes the narrow
+bridge, `renderer` owns presentation, and `shared` owns code used across those boundaries. Shared
+modules must not import from `main`, `preload`, or `renderer`; do not place shared rules under a UI
+directory. The two application TypeScript configurations explicitly include `src/shared/`.
+
+Use these project conventions consistently rather than renaming files to impose a different style:
+
+- English, lowercase directory names; use `kebab-case` for multiword directories, ordinary
+  TypeScript modules, CSS files, and authored visual assets.
+- `PascalCase.tsx` for React components, matching the component name: `App.tsx`, `GameSurface.tsx`.
+- Preserve conventional tool/entry names such as `index.ts`, `main.tsx`, `env.d.ts`, and the root
+  configuration filenames. Keep canonical documentation names such as `README.md` and `LICENSE`.
+- Preserve third-party font and license filenames, including `PressStart2P-Regular.ttf` and
+  `OFL.txt`; do not rename or modify them merely to normalize project naming.
+- Create folders for existing responsibilities, not empty future systems. Remove `.gitkeep` when
+  a real file already keeps the directory in Git. Do not introduce generic `utils` or `helpers`
+  buckets when a descriptive module name is clearer.
+
+For the current implementation, start with these owners:
+
+| File                                                                                         | Responsibility                                                                                    |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| [`src/main/index.ts`](src/main/index.ts)                                                     | Application startup, native windows, overlays, focus, input, IPC ownership, and shutdown cleanup. |
+| [`src/main/demo-controller.ts`](src/main/demo-controller.ts)                                 | Demo session ownership and cancellable lifecycle activation.                                      |
+| [`src/main/desktop-boundaries.ts`](src/main/desktop-boundaries.ts)                           | DIP cursor bounds and privileged sender checks.                                                   |
+| [`src/shared/desktop-api.ts`](src/shared/desktop-api.ts)                                     | Typed bridge contracts and the command allowlist.                                                 |
+| [`src/shared/game/game-state.ts`](src/shared/game/game-state.ts)                             | Pure state transitions and session-reference preservation.                                        |
+| [`src/preload/index.ts`](src/preload/index.ts)                                               | Scoped bridge implementation, with no raw IPC exposed to React.                                   |
+| [`src/renderer/src/App.tsx`](src/renderer/src/App.tsx)                                       | Menu presentation, keyboard navigation, and snapshot subscription.                                |
+| [`src/renderer/src/components/GameSurface.tsx`](src/renderer/src/components/GameSurface.tsx) | Cursor rendering, idle help, and mounted gameplay presentation.                                   |
+| [`src/renderer/src/assets/base.css`](src/renderer/src/assets/base.css)                       | Shared palette, typography defaults, and transparent document baseline.                           |
+| [`src/renderer/src/assets/main.css`](src/renderer/src/assets/main.css)                       | Menu, game surface, edge vignette, hint, and cursor styling.                                      |
+
+### Files in Git
+
+Version application source, root tooling/configuration files, `pnpm-lock.yaml`, documentation,
+`build/icon.ico`, authored cursor artwork, and the local font with its copyright/license notice.
+The font is an application resource, not an installed dependency directory. See
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for its provenance and license.
+
+Do not version `node_modules/`, `out/`, `dist/`, local `.vscode/` settings, tool caches, logs, secrets,
+or signing certificates. These local/generated files may be present without belonging in a commit;
+do not delete them just to make the checkout look smaller. Keep existing ignore entries for legacy
+test output so old caches cannot accidentally be committed, even though tests are currently removed.
+Keep tests and their tooling removed unless the maintainer explicitly requests them again.
 
 ### Game lifecycle
 
@@ -99,8 +152,14 @@ deep immutability or persistence; callers own their session data. Closing settin
 automatically.
 
 The core owns no timers, input listeners, React state, or Electron APIs. `exiting` records a request
-to leave; the application shell will be responsible for cleanup and actual shutdown when integrated.
-These rules do not yet provide working menus, input capture, or a playable session.
+to leave. The desktop controller now connects this lifecycle to menus and owns the opaque demo
+session; the Electron window layer performs cleanup and actual shutdown. The demo does not expose
+settings actions or implement real minigame rules.
+
+Focus loss, minimization, renderer reload, or display changes pause active play and release the
+input shields. The ordinary menu window remains available for returning to the paused session.
+Only explicit Resume reactivates play. Native cursor confinement and global input hooks are not
+used; a visual cursor is clamped to the primary display using Electron DIP coordinates.
 
 ## Coding conventions
 
@@ -157,7 +216,7 @@ For example, this is the structure of a lifecycle API comment:
  */
 ```
 
-See [`game-state.ts`](src/renderer/src/game/core/game-state.ts) for a complete example with
+See [`game-state.ts`](src/shared/game/game-state.ts) for a complete example with
 ownership notes and usage documentation.
 
 Use the comment format appropriate to the technology:
@@ -192,8 +251,6 @@ utility if it brings those dependencies with it.
 Extract shared helpers when they remove real duplication or name a meaningful concept. Do not build
 generic frameworks, add layers of wrappers, or combine unrelated operations behind boolean flags
 just to reduce line count. Short, explicit code can be clearer than an unnecessary abstraction.
-Share test fixtures and setup where useful, but keep expected outcomes independent of the production
-algorithm so tests can detect defects rather than reproduce them.
 
 ### Desktop safety
 
@@ -317,20 +374,19 @@ accurate; corrections should be explicit rather than silently rewriting what was
 
 Choose checks that match the change and report what you actually ran.
 
-| Change                                  | Expected verification                                                              |
-| --------------------------------------- | ---------------------------------------------------------------------------------- |
-| Documentation only                      | Formatting, relative links, referenced commands, and accuracy against the source.  |
-| TypeScript or application configuration | Formatting, lint, type checking, relevant unit tests, and an application build.    |
-| Interface or CSS                        | Relevant static checks, plus manual review of the affected layout and interaction. |
-| Desktop lifecycle or input behavior     | Relevant static checks, plus manual verification on Windows.                       |
-| Packaging                               | An application build and the relevant Windows packaging command.                   |
+| Change                                  | Expected verification                                                               |
+| --------------------------------------- | ----------------------------------------------------------------------------------- |
+| Documentation only                      | Formatting, relative links, referenced commands, and accuracy against the source.   |
+| TypeScript or application configuration | Formatting, lint, type checking, and an application build.                          |
+| Interface or CSS                        | Relevant static checks; describe manual layout and interaction checks for the user. |
+| Desktop lifecycle or input behavior     | Relevant static checks; describe manual Windows verification for the user.          |
+| Packaging                               | An application build and the relevant Windows packaging command.                    |
 
 The available checks are:
 
 ```powershell
 pnpm format:check
 pnpm lint
-pnpm test
 pnpm typecheck
 pnpm build
 ```
@@ -338,21 +394,15 @@ pnpm build
 Use `pnpm build:unpack` or `pnpm build:win` when packaging is affected. `pnpm start` previews a
 compiled build; it does not build the application first.
 
-Vitest runs unit tests from `tests/unit/**/*.test.ts` in a Node.js environment, without launching
-Electron or a browser. Use explicit imports from `vitest` and test the production implementation
-rather than duplicating its logic. `pnpm typecheck` also checks the tests and their configuration;
-running Vitest alone does not replace static type checking.
+Automated tests, desktop probes, and their tooling have been removed at the maintainer's request.
+Do not add or execute tests, install a test runner, or launch scripted Electron/browser checks
+unless the user explicitly requests testing. The maintainer performs manual gameplay checks.
+Formatting, lint, type checking, and compilation remain available static checks.
 
-For a focused run or local iteration:
-
-```powershell
-pnpm test tests/unit/game/game-state.test.ts
-pnpm test:watch
-```
-
-Test source files, test configuration, and the lockfile belong in Git. Generated `.vitest/` artifacts,
-coverage output, and test reports remain ignored. Coverage reporting and CI workflows have not been
-configured; do not report them as passing checks.
+For interface and desktop changes, describe what the maintainer should check: menu controls,
+Escape pause, explicit resume, Alt+Tab/Win+Tab, transparent click shielding, cursor visibility,
+display changes, and complete shutdown. Do not claim those scenarios were verified just because
+the app compiled. Automated testing, coverage reporting, and CI workflows are not configured.
 
 A successful build does not establish that desktop input, focus handling, accessibility, or an
 installer works correctly. Record those checks separately, including anything you could not verify.

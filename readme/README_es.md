@@ -33,17 +33,40 @@ el minijuego original sin cambios.
 ## Estado del proyecto
 
 > [!IMPORTANT]
-> Manager.exe se encuentra en una etapa inicial de desarrollo. La aplicación actual abre una ventana
-> vacía; todavía no hay un videojuego jugable.
+> Manager.exe se encuentra en una etapa inicial de desarrollo. Se implementó una demo de interacción
+> con el escritorio; todavía no hay minijuegos terminados. La interacción con varios monitores y los
+> atajos de cambio de aplicación de Windows requieren verificación manual antes de dar por lista la capa.
 
 La base ya está preparada: Electron, una interfaz con React, TypeScript en modo estricto, CSS,
 herramientas de análisis y formato de código, y configuración de empaquetado para Windows.
 
-También se incluye un núcleo de estados del juego en TypeScript puro y pruebas unitarias con
-Vitest. El núcleo gestiona las acciones de iniciar, pausar, reanudar, abrir y cerrar ajustes, y
-solicitar la salida, pero todavía no está conectado a la ventana de la aplicación. Solicitar la
-salida en el núcleo no cierra Electron. Consulta el
-[ciclo de vida del juego](../CONTRIBUTING.md#game-lifecycle) para conocer las reglas de transición.
+El núcleo de estados en TypeScript puro está conectado a un menú mínimo: Manager.exe y, debajo,
+Play (Resume al pausar), Settings deshabilitado como marcador y Exit. Play activa una superficie
+transparente en el monitor principal y capas que interceptan clics en las pantallas secundarias.
+La demo dibuja un cursor
+virtual y se pausa al perder el foco. Al volver, el menú de pausa permanece abierto; solo Resume
+reactiva la capa.
+El menú compacto permite recorrer los botones disponibles con las flechas, activarlos con Enter
+y seguir usando Tab o Mayús+Tab.
+
+El cursor de Windows no se confina ni se mueve por código. Puede cruzar pantallas, pero el cursor
+virtual visible permanece en el área principal y el juego ignora los clics de otras pantallas.
+El menú usa una paleta gris oscuro lisa, una fuente arcade local y un cursor pixel art monocromo
+basado en la referencia proporcionada. El cursor del juego mide 12 por 21 píxeles, como el del menú.
+Los bordes del área principal de juego se oscurecen suavemente hacia fuera, con el centro transparente
+y las notificaciones y el cursor por encima. El cursor se dibuja con la posición más reciente en
+fotogramas bajo demanda, sin interpolación ni un bucle permanente de animación. El rendimiento en
+equipos de bajos recursos todavía no se ha medido.
+La ayuda breve de Esc aparece tras 1,5 segundos sin mover el cursor y sale de la pantalla al moverlo;
+la preferencia de movimiento reducido desactiva la animación. Esc abre la pausa, no cierra el programa
+directamente. Exit cierra Electron mediante una
+API de preload de alcance limitado. Los ajustes siguen siendo
+solo un estado del núcleo, sin interfaz todavía. Consulta el
+[ciclo de vida del juego](../CONTRIBUTING.md#game-lifecycle).
+
+Las pruebas y sus herramientas se han retirado por ahora. El mantenedor prueba el juego manualmente;
+solo se añadirán o ejecutarán pruebas cuando se solicite explícitamente. Las comprobaciones estáticas
+siguen disponibles en los comandos de abajo.
 
 La experiencia prevista incluye:
 
@@ -51,12 +74,11 @@ La experiencia prevista incluye:
 - Un minijuego de atrapadas adaptado del original de Zoom Manager al nuevo antagonista.
 - Un villano original con un nuevo nombre y avatar, ambos todavía por diseñar.
 - Efectos pixel art, diálogos expresivos y una introducción de estilo arcade.
-- Una capa sobre el escritorio que reciba los clics del juego sin transmitirlos a las aplicaciones
+- Una capa verificada sobre el escritorio que reciba los clics sin transmitirlos a las aplicaciones
   que estén debajo.
-- Un menú de pausa con `Esc`, opciones para reanudar y acceder a los ajustes, y formas seguras de
-  salir del juego.
+- Controles de ajustes y más verificaciones de accesibilidad y entrada para el menú de pausa existente.
 
-Estos son objetivos de desarrollo, no funciones disponibles en la estructura actual. La selección
+Estos son objetivos de desarrollo, no funciones terminadas de la demo de interacción. La selección
 de minijuegos, el diseño del personaje y otros detalles podrán evolucionar a medida que avance el
 desarrollo.
 
@@ -89,8 +111,9 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Esto inicia Electron y el servidor de desarrollo de Vite. En esta etapa, es normal que se abra una
-ventana vacía. Si quieres contribuir, sigue el flujo de ramas descrito en
+Esto inicia Electron y el servidor de desarrollo de Vite en el menú de la demo. Play intercepta
+temporalmente los clics sobre el escritorio; Esc pausa y Exit o Alt+F4 cierra la aplicación.
+Si quieres contribuir, sigue el flujo de ramas descrito en
 [CONTRIBUTING.md](../CONTRIBUTING.md#gitflow).
 
 <details>
@@ -111,18 +134,16 @@ Para los demás comandos, sustituye `pnpm` por `npx --yes pnpm@10.34.9`.
 
 Ejecuta los comandos desde la raíz del proyecto.
 
-| Comando             | Propósito                                                             |
-| ------------------- | --------------------------------------------------------------------- |
-| `pnpm dev`          | Iniciar la aplicación en modo de desarrollo.                          |
-| `pnpm format:check` | Comprobar el formato sin modificar archivos.                          |
-| `pnpm lint`         | Ejecutar ESLint.                                                      |
-| `pnpm test`         | Ejecutar las pruebas unitarias una vez.                               |
-| `pnpm test:watch`   | Ejecutar las pruebas unitarias en modo de observación.                |
-| `pnpm typecheck`    | Comprobar los tipos de la aplicación, las pruebas y su configuración. |
-| `pnpm build`        | Comprobar los tipos y compilar la aplicación.                         |
-| `pnpm start`        | Abrir la aplicación compilada después de ejecutar una compilación.    |
-| `pnpm build:unpack` | Generar una aplicación de Windows sin instalador.                     |
-| `pnpm build:win`    | Generar el instalador para Windows.                                   |
+| Comando             | Propósito                                                          |
+| ------------------- | ------------------------------------------------------------------ |
+| `pnpm dev`          | Iniciar la aplicación en modo de desarrollo.                       |
+| `pnpm format:check` | Comprobar el formato sin modificar archivos.                       |
+| `pnpm lint`         | Ejecutar ESLint.                                                   |
+| `pnpm typecheck`    | Comprobar los tipos de la aplicación.                              |
+| `pnpm build`        | Comprobar los tipos y compilar la aplicación.                      |
+| `pnpm start`        | Abrir la aplicación compilada después de ejecutar una compilación. |
+| `pnpm build:unpack` | Generar una aplicación de Windows sin instalador.                  |
+| `pnpm build:win`    | Generar el instalador para Windows.                                |
 
 ## Estructura del proyecto
 
@@ -130,22 +151,24 @@ Ejecuta los comandos desde la raíz del proyecto.
 build/                  Recursos de empaquetado para Windows
 src/
   main/                 Ventana de Electron y ciclo de vida de la aplicación
-  preload/              Punto de entrada para futuras APIs de escritorio con alcance limitado
+  preload/              API de escritorio tipada y de alcance limitado
+  shared/               Contratos de la API y validación de comandos
+    game/               Transiciones de estado compartidas en TypeScript puro
   renderer/
     index.html          Punto de entrada HTML de la interfaz
     src/
       assets/           CSS global y recursos visuales
       components/       Componentes de React
-      game/core/        Transiciones de estado en TypeScript puro
-      App.tsx           Componente raíz, actualmente vacío
+      App.tsx           Menús y superficie de prueba de la demo
       main.tsx          Punto de entrada de React
-tests/unit/game/        Pruebas unitarias del núcleo del juego
-vitest.config.mts       Configuración de las pruebas unitarias
 ```
 
 La estructura sigue la plantilla de React y TypeScript de electron-vite. Las responsabilidades de
 escritorio se mantienen separadas de la interfaz de React. El núcleo de estados del juego es
 independiente de ambos; los sistemas de juego se incorporarán a medida que avance el desarrollo.
+Consulta [estructura y nombres](../CONTRIBUTING.md#layout-and-naming) para conocer la responsabilidad
+de cada archivo y [archivos en Git](../CONTRIBUTING.md#files-in-git) para distinguir recursos versionados
+de archivos locales o generados. Ambas secciones están escritas en inglés.
 
 ## Cómo contribuir
 
@@ -160,3 +183,5 @@ están en [AGENTS.md](../AGENTS.md).
 ## Licencia
 
 Manager.exe se distribuye bajo la [licencia MIT](../LICENSE).
+Las fuentes incluidas mantienen su propia licencia; consulta los
+[avisos de terceros](../THIRD_PARTY_NOTICES.md).

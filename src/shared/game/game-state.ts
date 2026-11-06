@@ -1,5 +1,5 @@
 /**
- * Represents the game lifecycle without depending on a renderer or desktop runtime.
+ * Represents the shared game lifecycle without depending on a renderer or desktop runtime.
  *
  * @remarks
  * Only playing, paused, and settings states carry a session. The lifecycle preserves that

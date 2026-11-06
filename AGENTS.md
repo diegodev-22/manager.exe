@@ -9,10 +9,10 @@ Windows is the only current development and packaging target. macOS and Linux ar
 adaptations, not supported platforms. Do not implement their integration or claim compatibility
 without a separately approved task and verification.
 
-The current application opens an empty window. A pure TypeScript game-state core and Vitest unit
-tests exist, but are not connected to that window. Gameplay, desktop overlays, pointer capture,
-and menus are not implemented. Keep planned behavior separate from existing behavior in
-documentation and completion reports.
+The application has an early Windows interaction demo with menus, transparent overlays, and a
+virtual cursor connected to the pure lifecycle core. Finished minigames and settings UI are not
+implemented. Real task-switching and multi-monitor acceptance checks remain manual and unverified.
+Keep implemented code, executed checks, and planned behavior separate in documentation and reports.
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) for contributor policy, GitFlow, and PR expectations.
 Use [README.md](README.md) for the project overview, not as a substitute for inspecting the code.
@@ -20,10 +20,10 @@ Use [README.md](README.md) for the project overview, not as a substitute for ins
 ## Repository map
 
 - `src/main/`: Electron windows, application lifecycle, and future privileged desktop operations.
-- `src/preload/`: Entry point for a future narrow, typed desktop API bridge.
+- `src/preload/`: Narrow, typed demo API bridge; never raw IPC.
+- `src/shared/`: Serializable bridge contracts and command validation.
+- `src/shared/game/`: Pure game lifecycle rules shared across process boundaries.
 - `src/renderer/src/`: React interface, CSS, and future game presentation.
-- `src/renderer/src/game/core/`: Pure state transitions with no React, DOM, or Electron dependencies.
-- `tests/unit/`: Versioned unit tests for production behavior, run in a Node.js environment.
 - `build/`: Authored packaging resources. Keep the Windows icon versioned.
 - `out/` and `dist/`: Generated output. Do not edit or commit it.
 - `package.json`: Available scripts and the pinned package manager.
@@ -31,25 +31,25 @@ Use [README.md](README.md) for the project overview, not as a substitute for ins
 
 Preserve the existing electron-vite structure. Do not introduce a monorepo, framework, game engine,
 or speculative directory hierarchy without an agreed requirement.
+Follow [layout and naming](CONTRIBUTING.md#layout-and-naming) and
+[files in Git](CONTRIBUTING.md#files-in-git). Shared code must not import process-specific layers.
 
 ## Development commands
 
 Use Node.js 24 LTS and the pnpm version in `package.json` (currently 10.34.9). Run commands from the
 repository root.
 
-| Command                          | Purpose                                                 |
-| -------------------------------- | ------------------------------------------------------- |
-| `pnpm install --frozen-lockfile` | Install the locked dependency graph.                    |
-| `pnpm dev`                       | Start the development application.                      |
-| `pnpm format:check`              | Check formatting without changing files.                |
-| `pnpm lint`                      | Run ESLint.                                             |
-| `pnpm test`                      | Run unit tests once.                                    |
-| `pnpm test:watch`                | Run unit tests in watch mode.                           |
-| `pnpm typecheck`                 | Check application, tests, and test configuration types. |
-| `pnpm build`                     | Check types and compile the application.                |
-| `pnpm start`                     | Preview an existing compiled build.                     |
-| `pnpm build:unpack`              | Build an unpacked Windows application.                  |
-| `pnpm build:win`                 | Build the Windows installer.                            |
+| Command                          | Purpose                                  |
+| -------------------------------- | ---------------------------------------- |
+| `pnpm install --frozen-lockfile` | Install the locked dependency graph.     |
+| `pnpm dev`                       | Start the development application.       |
+| `pnpm format:check`              | Check formatting without changing files. |
+| `pnpm lint`                      | Run ESLint.                              |
+| `pnpm typecheck`                 | Check application types.                 |
+| `pnpm build`                     | Check types and compile the application. |
+| `pnpm start`                     | Preview an existing compiled build.      |
+| `pnpm build:unpack`              | Build an unpacked Windows application.   |
+| `pnpm build:win`                 | Build the Windows installer.             |
 
 If pnpm is unavailable, use `npx --yes pnpm@10.34.9` in its place. Do not install global tools,
 replace the package manager, or add unrelated dependencies without approval.
@@ -114,6 +114,8 @@ For future desktop gameplay:
 
 - Receive gameplay clicks in the active game surface; never inject or forward them into other apps.
 - Use a virtual cursor for game effects rather than manipulating the Windows system cursor.
+- The demo plays on the primary monitor and shields secondary monitors from clicks. Native cursor
+  movement is not confined. Focus loss pauses and releases all shields; returning never auto-resumes.
 - Preserve a reliable pause and exit path. Release input capture on pause, focus loss, and shutdown.
 - Do not block Windows system shortcuts or repeatedly steal focus.
 - Do not add global input hooks, desktop capture, administrator requirements, background services,
@@ -128,18 +130,19 @@ Choose checks based on the affected behavior:
 
 - Documentation-only changes: run formatting checks and verify links, paths, commands, and claims.
   Do not run a desktop build solely to validate prose.
-- TypeScript or application configuration changes: run formatting, lint, type checking, relevant
-  unit tests, and build.
-- Interface or desktop behavior changes: add relevant manual Windows checks. A successful build
-  does not prove that input capture, focus, accessibility, or cleanup works.
+- TypeScript or application configuration changes: run formatting, lint, type checking, and build.
+- Interface or desktop behavior changes: explain relevant manual Windows checks for the user.
+  Do not launch the app or automate interaction checks without a request. A successful build does
+  not prove that input capture, focus, accessibility, or cleanup works.
 - Packaging changes: run the relevant Windows packaging command as well as the application build.
 
-Keep unit tests in `tests/unit/` and import the real implementation. Vitest uses Node.js with explicit
-test imports; do not add browser mocks or Electron launches to pure core tests. Test sources and
-configuration belong in Git, while `.vitest/`, coverage output, and reports remain ignored.
+Tests and their tooling have been removed at the maintainer's request. Do not add or run unit tests,
+integration tests, or Electron/browser test probes unless the user explicitly requests tests.
+The user performs manual gameplay checks. Formatting, lint, type checking, and compilation remain
+available static checks and are not a substitute for manual verification.
 
-Coverage reporting and CI workflows are not configured. Do not report unexecuted checks as passing.
-Distinguish source inspection, executed tests, and remaining gaps, especially actual desktop shutdown.
+Automated testing, coverage reporting, and CI workflows are not configured. Do not report unexecuted
+checks as passing. Distinguish source inspection, executed static checks, and remaining desktop gaps.
 
 ## Git and change management
 
