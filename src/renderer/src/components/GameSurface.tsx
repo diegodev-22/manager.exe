@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import type { CursorPosition } from '../../../shared/desktop-api'
 
 /** Delay after the last real pointer movement before showing help, in milliseconds. */
@@ -14,6 +15,7 @@ const HINT_IDLE_DELAY_MS = 1500
  * frame, idle timeout, and bridge subscription without keeping simulation in React state.
  */
 export default function GameSurface(): React.JSX.Element {
+  const { t } = useTranslation()
   const cursor = useRef<HTMLDivElement>(null)
   const hint = useRef<HTMLElement>(null)
 
@@ -75,18 +77,18 @@ export default function GameSurface(): React.JSX.Element {
   }, [])
 
   return (
-    <main className="game-surface" aria-label="Desktop interaction demo">
+    <main className="game-surface" aria-label={t(($) => $.game.label)}>
       <aside
         className="game-hud"
         ref={hint}
         data-visible="false"
         aria-hidden="true"
-        aria-label="Game help"
+        aria-label={t(($) => $.game.help)}
       >
         <kbd className="escape-key">Esc</kbd>
         <div className="hint-copy">
-          <strong>Pause the game</strong>
-          <p>Resume or exit from the menu.</p>
+          <strong>{t(($) => $.game.pause)}</strong>
+          <p>{t(($) => $.game.pauseHelp)}</p>
         </div>
       </aside>
       <div className="virtual-cursor" ref={cursor} aria-hidden="true" />

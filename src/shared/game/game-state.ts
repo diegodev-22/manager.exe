@@ -2,7 +2,7 @@
  * Represents the shared game lifecycle without depending on a renderer or desktop runtime.
  *
  * @remarks
- * Only playing, paused, and settings states carry a session. The lifecycle preserves that
+ * Playing, paused, and settings opened from pause carry a session. The lifecycle preserves that
  * caller-owned reference; readonly state properties do not deeply freeze its contents.
  * The terminal exiting state represents a shutdown request, not a completed process exit.
  *
@@ -12,7 +12,8 @@ export type GameState<Session> =
   | { readonly status: 'ready' }
   | { readonly status: 'playing'; readonly session: Session }
   | { readonly status: 'paused'; readonly session: Session }
-  | { readonly status: 'settings'; readonly session: Session }
+  | { readonly status: 'settings'; readonly returnTo: 'ready' }
+  | { readonly status: 'settings'; readonly returnTo: 'paused'; readonly session: Session }
   | { readonly status: 'exiting' }
 
 /**
@@ -84,10 +85,16 @@ export function transitionGameState<Session>(
     case 'resume':
       return state.status === 'paused' ? { status: 'playing', session: state.session } : state
     case 'open-settings':
-      return state.status === 'paused' ? { status: 'settings', session: state.session } : state
+      if (state.status === 'ready') return { status: 'settings', returnTo: 'ready' }
+      return state.status === 'paused'
+        ? { status: 'settings', returnTo: 'paused', session: state.session }
+        : state
     case 'close-settings':
       // Closing settings must not restart gameplay before the player explicitly resumes.
-      return state.status === 'settings' ? { status: 'paused', session: state.session } : state
+      if (state.status !== 'settings') return state
+      return state.returnTo === 'ready'
+        ? { status: 'ready' }
+        : { status: 'paused', session: state.session }
     case 'exit':
       return { status: 'exiting' }
   }

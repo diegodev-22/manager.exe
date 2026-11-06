@@ -10,6 +10,13 @@ See [changelog maintenance](CONTRIBUTING.md#changelog-maintenance) for contribut
 
 ### Added
 
+- Settings available from the start and pause menus, with light/dark themes and offline
+  English/Spanish localization. Choices remain drafts until Save succeeds; saving keeps settings
+  open, while Back/Esc confirms discarding pending edits and returns without resuming play.
+  Mouse, keyboard navigation, native Tab order, and a safe discard dialog are supported.
+- Validated, versioned preferences saved under Electron userData through the narrow preload bridge.
+  Fresh settings use dark mode and the first supported system language, falling back to English.
+  Corrupt/unreadable settings and failed saves show localized feedback; updates are serialized.
 - Initial Windows application scaffold using Electron, React, strict TypeScript, CSS, and
   electron-vite, with pnpm scripts, linting, formatting, and Windows packaging configuration.
 - English and Spanish READMEs, contributor setup and GitFlow guidance, desktop safety rules,
@@ -27,6 +34,8 @@ See [changelog maintenance](CONTRIBUTING.md#changelog-maintenance) for contribut
 
 ### Changed
 
+- Centered settings and initial menus within the Windows work area and anchored pause menus
+  bottom-left clear of the taskbar. Menus use opaque theme-specific cards and keyboard focus rings.
 - Refocused the English and Spanish READMEs on Manager.exe's own identity and plans, with brief
   creator credits for Diego Avalos and Giovanni Vilela.
 - Simplified the initial and pause menus to Manager.exe and a vertical stack of Play/Resume,
