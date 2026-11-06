@@ -64,6 +64,13 @@ See [changelog maintenance](CONTRIBUTING.md#changelog-maintenance) for contribut
   longer depend on renderer-owned source. Documented file ownership, naming conventions, and
   versioned-resource policy; removed the obsolete component-directory placeholder.
 
+### Fixed
+
+- Confirmed actual focus loss before minimizing any view, ignoring transient Windows blur events.
+  Released shields and primary topmost behavior before yielding, removed native focus recovery,
+  and guarded pending activation against cancellation. Returning preserves menus/drafts and never
+  auto-resumes gameplay. Background display updates cannot restore the window.
+
 ### Removed
 
 - Automated tests, scripted Electron probes, Vitest, test scripts, and test TypeScript configuration

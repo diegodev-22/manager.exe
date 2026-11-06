@@ -81,6 +81,8 @@ function createDesktopDemo(preferences: PreferencesStore): void {
   let playBounds = screen.getPrimaryDisplay().bounds
   let overlayActive = false
   let disposed = false
+  let yieldingDesktop = false
+  let focusLossCheck: ReturnType<typeof setImmediate> | undefined
   let lastPointerPosition = screen.getCursorScreenPoint()
   /** Native activation is allowed only while the user is actually in this visible application. */
   function isForegroundWindow(): boolean {
@@ -190,16 +192,36 @@ function createDesktopDemo(preferences: PreferencesStore): void {
         }
       },
       enterOverlay: () => {
+        const batch = shields
+        /** Native window changes can synchronously blur/minimize and cancel this activation. */
+        const requireActiveOverlay = (): void => {
+          if (
+            disposed ||
+            mainWindow.isDestroyed() ||
+            mainWindow.isMinimized() ||
+            shields !== batch ||
+            controller.getSnapshot().status !== 'playing'
+          ) {
+            throw new Error('Overlay activation cancelled.')
+          }
+        }
+        if (!isForegroundWindow()) throw new Error('The menu must be focused to play.')
+        requireActiveOverlay()
         alignForegroundWindow()
+        requireActiveOverlay()
         lastPointerPosition = screen.getCursorScreenPoint()
         overlayActive = true
-        mainWindow.setAlwaysOnTop(true)
-        for (const shield of shields) {
+        // The focused primary window already owns gameplay input. Promoting this transparent
+        // window to topmost can disturb Windows z-order/focus; only secondary shields need it.
+        for (const shield of batch) {
+          requireActiveOverlay()
           shield.setAlwaysOnTop(true)
           shield.showInactive()
         }
-        // Native entry still follows the existing explicit Play/Resume gesture here.
-        mainWindow.focus()
+        requireActiveOverlay()
+        // The menu was already focused. Never call focus/show/restore here to recover activation:
+        // an Alt+Tab or Win+Tab during startup belongs to the user, not to a pending Play request.
+        // Focus notifications caused by native style changes settle through the owned blur check.
       },
       releaseOverlay,
       publish,
@@ -294,7 +316,60 @@ function createDesktopDemo(preferences: PreferencesStore): void {
     return preferences.update(args[0])
   })
 
-  mainWindow.on('blur', () => controller.interrupt('focus-lost'))
+  /** Releases input and minimizes every view on task switching, without changing ready/settings state. */
+  function yieldDesktop(): void {
+    if (
+      yieldingDesktop ||
+      disposed ||
+      mainWindow.isDestroyed() ||
+      mainWindow.isFocused() ||
+      controller.getSnapshot().status === 'exiting'
+    )
+      return
+    // Minimizing/dropping topmost can emit more blur/minimize events; do not re-enter cleanup.
+    yieldingDesktop = true
+    try {
+      controller.interrupt('focus-lost')
+      // interrupt is intentionally a no-op in menus/settings, but no native overlay may remain.
+      releaseOverlay()
+      if (
+        !disposed &&
+        !mainWindow.isDestroyed() &&
+        !mainWindow.isMinimized() &&
+        controller.getSnapshot().status !== 'exiting'
+      )
+        mainWindow.minimize()
+    } finally {
+      yieldingDesktop = false
+    }
+  }
+  /** Cancels the one pending check when Windows completes focus restoration or shutdown starts. */
+  function cancelFocusLossCheck(): void {
+    if (focusLossCheck === undefined) return
+    clearImmediate(focusLossCheck)
+    focusLossCheck = undefined
+  }
+
+  /**
+   * Windows can emit blur while isFocused() is already true during restoration/topmost changes.
+   * Decide on the next main-loop turn, not on that notification alone; never try to reclaim focus.
+   */
+  function checkFocusLoss(): void {
+    if (
+      disposed ||
+      yieldingDesktop ||
+      mainWindow.isDestroyed() ||
+      mainWindow.isMinimized() ||
+      mainWindow.isFocused() ||
+      focusLossCheck !== undefined
+    )
+      return
+    focusLossCheck = setImmediate(() => {
+      focusLossCheck = undefined
+      yieldDesktop()
+    })
+  }
+  mainWindow.on('blur', checkFocusLoss)
   mainWindow.on('minimize', () => controller.interrupt('minimized'))
   mainWindow.webContents.on('did-start-loading', () => {
     controller.interrupt('reloaded')
@@ -315,6 +390,7 @@ function createDesktopDemo(preferences: PreferencesStore): void {
 
   // Windows/taskbar/Alt+Tab restores the window. This listener only aligns it, never resumes or focuses it.
   mainWindow.on('focus', () => {
+    cancelFocusLossCheck()
     refreshDisplayLayout()
   })
   const onDisplayChange = (): void => {
@@ -329,6 +405,7 @@ function createDesktopDemo(preferences: PreferencesStore): void {
   function dispose(): void {
     if (disposed) return
     disposed = true
+    cancelFocusLossCheck()
     releaseOverlay()
     ipcMain.removeHandler(desktopChannels.snapshot)
     ipcMain.removeHandler(desktopChannels.command)

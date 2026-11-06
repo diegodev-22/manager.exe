@@ -108,6 +108,7 @@ export class DemoController {
           command === 'start' ? { type: 'start', session: { hits: 0 } } : { type: 'resume' }
         )
         this.desktop.enterOverlay()
+        if (token !== this.activationToken) return this.getSnapshot()
         this.activating = false
         this.publish()
       } catch {
