@@ -20,15 +20,9 @@ A Windows desktop arcade game in development.
 
 Manager.exe is being developed as an open-source desktop arcade game built around a collection of
 randomly selected minigames and an original antagonist. Your desktop becomes the backdrop for a
-series of challenges rather than a single cursor-versus-clock duel.
+series of arcade challenges with pixel-art presentation.
 
-The project takes inspiration from the minigame originally created for Zoom Manager. Its catching
-mechanic will be adapted into one of Manager.exe's minigames, where the player tries to catch the
-enemy with the cursor. The rest of the minigame lineup is still being defined.
-
-Manager.exe will have its own villain: it will not be Horacio or a clock. The antagonist's new name
-and avatar have not been decided yet. The game is developing its own identity, not recreating the
-original minigame unchanged.
+The minigame lineup, individual rules, and antagonist's name and appearance are still being designed.
 
 ## Project status
 
@@ -67,8 +61,7 @@ tests will only be added or run when explicitly requested. Static checks remain 
 The planned experience includes:
 
 - A collection of randomly selected minigames, with their individual rules still being defined.
-- A catching minigame adapted from Zoom Manager's original minigame to the new antagonist.
-- An original villain with a new name and avatar, both still to be designed.
+- An original antagonist whose name and appearance are still to be designed.
 - Pixel-art effects, expressive dialogue, and an arcade-style introduction.
 - A verified desktop overlay that receives gameplay clicks without passing them to applications underneath.
 - Settings controls and further accessibility and input verification for the existing pause menu.
@@ -159,6 +152,11 @@ separate from the React interface. The game-state core is independent of both; g
 will be added as development progresses.
 See [layout and naming](CONTRIBUTING.md#layout-and-naming) for file ownership and naming conventions,
 and [files in Git](CONTRIBUTING.md#files-in-git) for versioned resources versus generated output.
+
+## Creators
+
+Created by **Diego Avalos** and **Giovanni Vilela**. Giovanni proposed the initial idea,
+which both creators developed together.
 
 ## Contributing
 

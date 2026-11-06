@@ -20,15 +20,10 @@ Un videojuego arcade de escritorio para Windows, actualmente en desarrollo.
 
 Manager.exe se está desarrollando como un videojuego arcade de escritorio y de código abierto,
 basado en una colección de minijuegos seleccionados al azar y un antagonista original. Tu escritorio
-se convierte en el escenario de una serie de desafíos, no de un único duelo entre el cursor y un reloj.
+se convierte en el escenario de una serie de desafíos arcade con una presentación pixel art.
 
-El proyecto toma como inspiración el minijuego creado originalmente para Zoom Manager. Su mecánica
-de atrapadas se adaptará como uno de los minijuegos de Manager.exe, en el que el jugador intentará
-atrapar al enemigo con el cursor. El resto de los minijuegos todavía está por definir.
-
-Manager.exe tendrá su propio villano: no será Horacio ni un reloj. El nuevo nombre y el avatar del
-antagonista aún no se han decidido. El juego está construyendo su propia identidad, no reproduciendo
-el minijuego original sin cambios.
+La selección de minijuegos, sus reglas y el nombre y la apariencia del antagonista todavía están
+en fase de diseño.
 
 ## Estado del proyecto
 
@@ -71,8 +66,7 @@ siguen disponibles en los comandos de abajo.
 La experiencia prevista incluye:
 
 - Una colección de minijuegos seleccionados al azar, cuyas reglas individuales aún están por definir.
-- Un minijuego de atrapadas adaptado del original de Zoom Manager al nuevo antagonista.
-- Un villano original con un nuevo nombre y avatar, ambos todavía por diseñar.
+- Un antagonista original cuyo nombre y apariencia todavía están por diseñar.
 - Efectos pixel art, diálogos expresivos y una introducción de estilo arcade.
 - Una capa verificada sobre el escritorio que reciba los clics sin transmitirlos a las aplicaciones
   que estén debajo.
@@ -169,6 +163,11 @@ independiente de ambos; los sistemas de juego se incorporarán a medida que avan
 Consulta [estructura y nombres](../CONTRIBUTING.md#layout-and-naming) para conocer la responsabilidad
 de cada archivo y [archivos en Git](../CONTRIBUTING.md#files-in-git) para distinguir recursos versionados
 de archivos locales o generados. Ambas secciones están escritas en inglés.
+
+## Creadores
+
+Creado por **Diego Avalos** y **Giovanni Vilela**. Giovanni propuso la idea inicial,
+que ambos creadores fueron desarrollando juntos.
 
 ## Cómo contribuir
 

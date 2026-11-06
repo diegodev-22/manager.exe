@@ -27,6 +27,8 @@ See [changelog maintenance](CONTRIBUTING.md#changelog-maintenance) for contribut
 
 ### Changed
 
+- Refocused the English and Spanish READMEs on Manager.exe's own identity and plans, with brief
+  creator credits for Diego Avalos and Giovanni Vilela and acknowledgement of Giovanni's initial idea.
 - Simplified the initial and pause menus to Manager.exe and a vertical stack of Play/Resume,
   Settings (not yet available), and Exit buttons on a plain dark-gray background. Removed slogans,
   decorative artwork, the grid, and the visible click counter; reduced the Esc reminder to a compact hint.

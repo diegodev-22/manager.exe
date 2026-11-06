@@ -3,7 +3,8 @@
 ## Project context
 
 Manager.exe is an open-source Windows desktop arcade game built with Electron, React, TypeScript,
-and CSS. It is inspired by the clock minigame in Zoom Manager.
+and CSS, built around a planned collection of minigames and an original antagonist.
+Keep public documentation focused on Manager.exe; do not reference private projects or their characters.
 
 Windows is the only current development and packaging target. macOS and Linux are possible future
 adaptations, not supported platforms. Do not implement their integration or claim compatibility
