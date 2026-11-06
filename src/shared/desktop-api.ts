@@ -25,6 +25,22 @@ export interface WorkAreaInsets {
 }
 
 /**
+ * Read-only primary-display diagnostics, separate from saved choices and simulation state.
+ * Pixel dimensions describe the current Windows desktop mode, not the panel's maximum resolution.
+ * Hz is the nominal OS-reported rate, not measured FPS or instantaneous VRR. Null means unavailable.
+ */
+export interface DisplayMetrics {
+  /** Physical desktop width; unavailable while detection is pending or has failed. */
+  readonly widthPx: number | null
+  /** Physical desktop height from the same native mode read as widthPx. */
+  readonly heightPx: number | null
+  readonly refreshRateHz: number | null
+  /** Windows pixel scale multiplier: 1 means 100%, 1.75 means 175%. */
+  readonly scaleFactor: number | null
+  readonly detectingResolution: boolean
+}
+
+/**
  * Serializable presentation data; the main process retains the actual caller-owned session.
  * Revisions increase for lifecycle and display updates, allowing consumers to reject stale replies.
  */
@@ -35,6 +51,7 @@ export interface DemoSnapshot {
   readonly activating: boolean
   readonly message: DemoMessage | null
   readonly workAreaInsets: WorkAreaInsets
+  readonly displayMetrics: DisplayMetrics
 }
 
 /** Primary-window local coordinates in device-independent pixels (DIP), not physical pixels. */

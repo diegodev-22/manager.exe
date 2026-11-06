@@ -21,6 +21,17 @@ const en = {
     keepEditing: 'Keep editing',
     discardAndBack: 'Discard and return'
   },
+  display: {
+    refreshRate: 'FPS',
+    resolution: 'Screen resolution',
+    scale: 'Scaling',
+    hertz: '{{value}} Hz',
+    pixels: '{{width}} × {{height}}',
+    unavailable: '—',
+    unavailableLabel: 'Unavailable',
+    detecting: '…',
+    detectingLabel: 'Detecting…'
+  },
   game: {
     label: 'Desktop interaction demo',
     help: 'Game help',

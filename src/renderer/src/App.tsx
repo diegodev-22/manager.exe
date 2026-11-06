@@ -127,6 +127,7 @@ function DemoMenu({ initialPreferences }: AppProps): React.JSX.Element {
             {snapshot?.status === 'settings' ? (
               <SettingsPanel
                 preferences={preferences}
+                displayMetrics={snapshot.displayMetrics}
                 saving={saving}
                 onSave={savePreferences}
                 onBack={() => void request('close-settings')}

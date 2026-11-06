@@ -23,6 +23,17 @@ const es = {
     keepEditing: 'Seguir editando',
     discardAndBack: 'Volver sin guardar'
   },
+  display: {
+    refreshRate: 'FPS',
+    resolution: 'Resolución de pantalla',
+    scale: 'Escalado',
+    hertz: '{{value}} Hz',
+    pixels: '{{width}} × {{height}}',
+    unavailable: '—',
+    unavailableLabel: 'No disponible',
+    detecting: '…',
+    detectingLabel: 'Detectando…'
+  },
   game: {
     label: 'Demo de interacción con el escritorio',
     help: 'Ayuda del juego',

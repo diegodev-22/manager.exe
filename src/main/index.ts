@@ -4,7 +4,13 @@ import { electronApp, is } from '@electron-toolkit/utils'
 import { DemoController } from './demo-controller'
 import { clampCursor, getWorkAreaInsets, isPrimarySender } from './desktop-boundaries'
 import { PreferencesStore } from './preferences-store'
-import { desktopChannels, isDesktopCommand, type DemoSnapshot } from '../shared/desktop-api'
+import { readPrimaryDisplayResolution, type DisplayResolution } from './windows-display'
+import {
+  desktopChannels,
+  isDesktopCommand,
+  type DemoSnapshot,
+  type DisplayMetrics
+} from '../shared/desktop-api'
 import { isPreferencesUpdate } from '../shared/preferences'
 
 /** Loads the same local renderer with a presentation-only role, never a privilege-bearing query. */
@@ -84,6 +90,41 @@ function createDesktopDemo(preferences: PreferencesStore): void {
   let yieldingDesktop = false
   let focusLossCheck: ReturnType<typeof setImmediate> | undefined
   let lastPointerPosition = screen.getCursorScreenPoint()
+  let resolution: DisplayResolution | null = null
+  let resolutionRequest: AbortController | undefined
+  let resolutionDisplayKey = ''
+
+  /** Keeps OS mode queries distinct from rounded DIP layout and nominal refresh-rate metadata. */
+  function getDisplayMetrics(display: Electron.Display): DisplayMetrics {
+    return {
+      widthPx: display.detected ? (resolution?.width ?? null) : null,
+      heightPx: display.detected ? (resolution?.height ?? null) : null,
+      refreshRateHz:
+        display.detected &&
+        Number.isFinite(display.displayFrequency) &&
+        display.displayFrequency > 1
+          ? display.displayFrequency
+          : null,
+      scaleFactor:
+        display.detected && Number.isFinite(display.scaleFactor) && display.scaleFactor > 0
+          ? display.scaleFactor
+          : null,
+      detectingResolution: resolutionRequest !== undefined
+    }
+  }
+
+  /** Mode identity avoids spawning a native query on every Alt+Tab without a display change. */
+  function getResolutionDisplayKey(display: Electron.Display): string {
+    return JSON.stringify([
+      display.id,
+      display.bounds.width,
+      display.bounds.height,
+      display.scaleFactor,
+      display.rotation,
+      display.detected
+    ])
+  }
+
   /** Native activation is allowed only while the user is actually in this visible application. */
   function isForegroundWindow(): boolean {
     return (
@@ -227,7 +268,8 @@ function createDesktopDemo(preferences: PreferencesStore): void {
       publish,
       quit: () => app.quit()
     },
-    getWorkAreaInsets(bounds, workArea)
+    getWorkAreaInsets(bounds, workArea),
+    getDisplayMetrics(primaryDisplay)
   )
 
   /**
@@ -385,17 +427,42 @@ function createDesktopDemo(preferences: PreferencesStore): void {
     const display = screen.getPrimaryDisplay()
     playBounds = display.bounds
     alignForegroundWindow()
-    controller.updateWorkAreaInsets(getWorkAreaInsets(display.bounds, display.workArea))
+    controller.updateDisplayMetrics(
+      getWorkAreaInsets(display.bounds, display.workArea),
+      getDisplayMetrics(display)
+    )
   }
 
+  /** Cancels obsolete native reads; late results never overwrite a newer mode or revive a window. */
+  function refreshDisplayResolution(): void {
+    resolutionRequest?.abort()
+    const request = new AbortController()
+    resolutionRequest = request
+    resolutionDisplayKey = getResolutionDisplayKey(screen.getPrimaryDisplay())
+    resolution = null
+    refreshDisplayLayout()
+    void readPrimaryDisplayResolution(request.signal).then((next) => {
+      if (disposed || request.signal.aborted || resolutionRequest !== request) return
+      resolutionRequest = undefined
+      // A primary-mode change during the read needs another read, not a possibly stale result.
+      if (resolutionDisplayKey !== getResolutionDisplayKey(screen.getPrimaryDisplay())) {
+        refreshDisplayResolution()
+        return
+      }
+      resolution = next
+      refreshDisplayLayout()
+    })
+  }
   // Windows/taskbar/Alt+Tab restores the window. This listener only aligns it, never resumes or focuses it.
   mainWindow.on('focus', () => {
     cancelFocusLossCheck()
-    refreshDisplayLayout()
+    if (resolutionDisplayKey !== getResolutionDisplayKey(screen.getPrimaryDisplay())) {
+      refreshDisplayResolution()
+    } else refreshDisplayLayout()
   })
   const onDisplayChange = (): void => {
     controller.interrupt('display-changed')
-    refreshDisplayLayout()
+    refreshDisplayResolution()
   }
   screen.on('display-added', onDisplayChange)
   screen.on('display-removed', onDisplayChange)
@@ -406,6 +473,8 @@ function createDesktopDemo(preferences: PreferencesStore): void {
     if (disposed) return
     disposed = true
     cancelFocusLossCheck()
+    resolutionRequest?.abort()
+    resolutionRequest = undefined
     releaseOverlay()
     ipcMain.removeHandler(desktopChannels.snapshot)
     ipcMain.removeHandler(desktopChannels.command)
@@ -419,6 +488,7 @@ function createDesktopDemo(preferences: PreferencesStore): void {
   app.on('before-quit', dispose)
   mainWindow.on('closed', dispose)
   mainWindow.once('ready-to-show', () => mainWindow.show())
+  refreshDisplayResolution()
   void loadRenderer(mainWindow).catch(() => controller.shutdown())
 }
 

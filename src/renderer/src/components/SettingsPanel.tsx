@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AppPreferences } from '../../../shared/preferences'
+import type { DisplayMetrics } from '../../../shared/desktop-api'
 import { navigateMenu } from '../menu-navigation'
+import DisplayInformation from './DisplayInformation'
 
 /** Settings are presented from ready or paused; neither changing a choice nor Back resumes play. */
 interface SettingsPanelProps {
   preferences: AppPreferences
+  displayMetrics: DisplayMetrics
   saving: boolean
   onSave(preferences: AppPreferences): Promise<boolean>
   onBack(): void
@@ -19,6 +22,7 @@ interface SettingsPanelProps {
  */
 export default function SettingsPanel({
   preferences,
+  displayMetrics,
   saving,
   onSave,
   onBack
@@ -146,6 +150,7 @@ export default function SettingsPanel({
             ))}
           </div>
         </fieldset>
+        <DisplayInformation metrics={displayMetrics} />
         <div className="settings-actions">
           {dirty && (
             <button

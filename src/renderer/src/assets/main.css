@@ -269,6 +269,48 @@ button[aria-busy='true'] {
   min-width: 0;
 }
 
+/* Use the same section rhythm for choices and read-only rows, with smaller gaps inside each group. */
+.display-metrics {
+  display: grid;
+  gap: var(--settings-section-gap);
+  margin: 0;
+  font-size: 16px;
+}
+
+.display-metrics > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  gap: 12px;
+}
+
+.display-metrics dt {
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.display-metrics dd {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 44px;
+  margin: 0;
+  padding: 8px;
+  /* Muted, recessed frames distinguish readable data from raised buttons, without fading text
+     through opacity or falsely disabling semantic text. No hover/pressed styling is applied. */
+  border: 2px solid var(--pixel-readonly-border);
+  color: var(--pixel-muted);
+  background: var(--pixel-readonly-background);
+  box-shadow: inset 0 2px 0 rgb(0 0 0 / 12%);
+  font-family: var(--pixel-title-font);
+  font-size: 10px;
+  line-height: 1.8;
+  text-align: center;
+  overflow-wrap: anywhere;
+  cursor: var(--pixel-pointer), default;
+}
+
 /* A native modal contains focus and makes the settings form inert until a decision is made. */
 .discard-dialog {
   width: min(360px, calc(100vw - 32px));

@@ -7,6 +7,7 @@ import type {
   DemoMessage,
   DemoSnapshot,
   DesktopCommand,
+  DisplayMetrics,
   WorkAreaInsets
 } from '../shared/desktop-api'
 
@@ -42,13 +43,16 @@ export class DemoController {
   private activating = false
   private message: DemoMessage | null = null
   private workAreaInsets: WorkAreaInsets
+  private displayMetrics: DisplayMetrics
 
   /** Takes initial display metadata by value; the caller owns desktop effects and future refreshes. */
   constructor(
     private readonly desktop: DemoDesktop,
-    initialWorkAreaInsets: WorkAreaInsets
+    initialWorkAreaInsets: WorkAreaInsets,
+    initialDisplayMetrics: DisplayMetrics
   ) {
     this.workAreaInsets = { ...initialWorkAreaInsets }
+    this.displayMetrics = { ...initialDisplayMetrics }
   }
 
   /** Returns presentation data only; the session reference never leaves the owning process. */
@@ -59,21 +63,28 @@ export class DemoController {
       hits: 'session' in this.state ? this.state.session.hits : 0,
       activating: this.activating,
       message: this.message,
-      workAreaInsets: { ...this.workAreaInsets }
+      workAreaInsets: { ...this.workAreaInsets },
+      displayMetrics: { ...this.displayMetrics }
     }
   }
 
-  /** Publishes layout metadata without changing lifecycle or the session reference. */
-  updateWorkAreaInsets(insets: WorkAreaInsets): void {
+  /** Publishes layout/monitor metadata atomically without changing lifecycle or the session reference. */
+  updateDisplayMetrics(insets: WorkAreaInsets, metrics: DisplayMetrics): void {
     if (this.state.status === 'exiting') return
     if (
       insets.top === this.workAreaInsets.top &&
       insets.right === this.workAreaInsets.right &&
       insets.bottom === this.workAreaInsets.bottom &&
-      insets.left === this.workAreaInsets.left
+      insets.left === this.workAreaInsets.left &&
+      metrics.widthPx === this.displayMetrics.widthPx &&
+      metrics.heightPx === this.displayMetrics.heightPx &&
+      metrics.refreshRateHz === this.displayMetrics.refreshRateHz &&
+      metrics.scaleFactor === this.displayMetrics.scaleFactor &&
+      metrics.detectingResolution === this.displayMetrics.detectingResolution
     )
       return
     this.workAreaInsets = { ...insets }
+    this.displayMetrics = { ...metrics }
     // Layout-only updates need a fresh revision so old async command replies cannot undo them.
     this.publish()
   }
