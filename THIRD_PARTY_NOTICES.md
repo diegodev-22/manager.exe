@@ -17,4 +17,4 @@ copyright and license text is emitted as an `OFL-*.txt` asset in compiled render
 referenced by the menu document's nonvisual `rel="license"` link.
 
 The pixel cursor was authored for Manager.exe from the user-supplied visual reference and is
-covered by the project's MIT License. No source code or artwork from Zoom Manager was copied.
+covered by the project's MIT License.
