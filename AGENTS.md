@@ -11,8 +11,9 @@ adaptations, not supported platforms. Do not implement their integration or clai
 without a separately approved task and verification.
 
 The application has an early Windows interaction demo with menus, transparent overlays, and a
-virtual cursor connected to the pure lifecycle core. Finished minigames and settings UI are not
-implemented. Real task-switching and multi-monitor acceptance checks remain manual and unverified.
+virtual cursor connected to the pure lifecycle core, plus theme and language settings. Finished
+minigames are not implemented. A temporary single-display Windows focus audit was executed;
+broader task-switching and multi-monitor acceptance still need manual verification.
 Keep implemented code, executed checks, and planned behavior separate in documentation and reports.
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) for contributor policy, GitFlow, and PR expectations.
@@ -67,8 +68,9 @@ replace the package manager, or add unrelated dependencies without approval.
   and bounded Canvas effects when gameplay is introduced.
 - Give event listeners, timers, animation loops, and input capture a clear lifecycle and cleanup owner.
 
-The core starts in `ready`. Settings open only from `paused` and close back to `paused`; resuming
-is explicit. Preserve the caller's exact session reference through pause, resume, and settings.
+The core starts in `ready`. Settings open from `ready` or `paused` and close back to their recorded
+origin; resuming is explicit. Preserve the caller's exact session reference through pause, resume,
+and settings opened from pause. Settings opened from `ready` must not create a session.
 Unsupported actions return the same state object. `exit` enters terminal `exiting`, which ignores
 all further actions. This is a shutdown request, not an Electron side effect. See
 [game lifecycle](CONTRIBUTING.md#game-lifecycle) before changing these rules.
@@ -106,6 +108,15 @@ Do not change dependencies or regenerate the lockfile for a documentation-only t
 Follow [comments and API documentation](CONTRIBUTING.md#comments-and-api-documentation) and
 [reuse and clean structure](CONTRIBUTING.md#reuse-and-clean-structure) when implementing or reviewing.
 
+### Preferences and localization
+
+Keep preference persistence in `src/main/preferences-store.ts` with typed, validated preload methods.
+Keep setting choices as a local draft until explicit Save succeeds. Back/Esc must confirm discarding
+unsaved changes; they must not apply a draft or resume gameplay.
+Use the renderer's bundled i18next catalogs for all player-facing text, including accessible labels;
+pass stable message codes across IPC rather than translated strings. See
+[preferences and localization](CONTRIBUTING.md#preferences-and-localization) for the owning policy.
+
 ## Desktop safety
 
 Keep `sandbox: true`, `contextIsolation: true`, and `nodeIntegration: false` in the application window.
@@ -116,7 +127,12 @@ For future desktop gameplay:
 - Receive gameplay clicks in the active game surface; never inject or forward them into other apps.
 - Use a virtual cursor for game effects rather than manipulating the Windows system cursor.
 - The demo plays on the primary monitor and shields secondary monitors from clicks. Native cursor
-  movement is not confined. Focus loss pauses and releases all shields; returning never auto-resumes.
+  movement is not confined. Focus loss pauses, releases all shields/topmost behavior, and minimizes
+  every view after confirming actual focus loss, not a transient Windows blur notification. Keep
+  the app minimized until the user restores it; returning never auto-resumes.
+- Keep the primary window display-sized from startup so menu and gameplay edge shading stays on the
+  screen edges. Do not promote the primary window to always-on-top; only active secondary shields
+  use it. Menus remain compact cards.
 - Preserve a reliable pause and exit path. Release input capture on pause, focus loss, and shutdown.
 - Do not block Windows system shortcuts or repeatedly steal focus.
 - Do not add global input hooks, desktop capture, administrator requirements, background services,
