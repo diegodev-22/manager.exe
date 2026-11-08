@@ -1,13 +1,24 @@
-import { app, BrowserWindow, ipcMain, screen, type IpcMainInvokeEvent } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  screen,
+  powerMonitor,
+  type IpcMainInvokeEvent
+} from 'electron'
 import { join } from 'path'
 import { electronApp, is } from '@electron-toolkit/utils'
 import { DemoController } from './demo-controller'
 import { clampCursor, getWorkAreaInsets, isPrimarySender } from './desktop-boundaries'
 import { PreferencesStore } from './preferences-store'
+import { IntroductionStore } from './introduction-store'
+import { CaptureRequest } from './capture-request'
+import { readIntroductionFrame } from './introduction-capture'
 import { readPrimaryDisplayResolution, type DisplayResolution } from './windows-display'
 import {
   desktopChannels,
   isDesktopCommand,
+  isCaptureLease,
   type DemoSnapshot,
   type DisplayMetrics
 } from '../shared/desktop-api'
@@ -56,9 +67,10 @@ async function loadShield(window: BrowserWindow): Promise<void> {
 
 /**
  * Owns the primary window, all display shields, native input, and their cleanup as one lifecycle.
- * No global input hooks, cursor clipping, desktop capture, or shortcut interception are used.
+ * No global input hooks, cursor clipping, or shortcut interception are used. Screenshot access is
+ * automatic during the introduction, bounded to one foreground frame per activation.
  */
-function createDesktopDemo(preferences: PreferencesStore): void {
+function createDesktopDemo(preferences: PreferencesStore, introduction: IntroductionStore): void {
   // Keep one display-sized transparent surface from startup so edge shading stays at screen edges.
   // The renderer owns the compact menu card; this is not exclusive fullscreen or kiosk mode.
   const primaryDisplay = screen.getPrimaryDisplay()
@@ -82,6 +94,14 @@ function createDesktopDemo(preferences: PreferencesStore): void {
     }
   })
   secureWindow(mainWindow)
+  // The game renderer and shields have no device/capture permissions. The disposable acquisition
+  // page uses its own memory-only session with a single explicitly selected display source.
+  const applicationSession = mainWindow.webContents.session
+  applicationSession.setPermissionCheckHandler(() => false)
+  applicationSession.setPermissionRequestHandler((_contents, _permission, callback) =>
+    callback(false)
+  )
+  applicationSession.setDisplayMediaRequestHandler((_request, callback) => callback({}))
 
   let shields = new Set<BrowserWindow>()
   let playBounds = screen.getPrimaryDisplay().bounds
@@ -93,6 +113,11 @@ function createDesktopDemo(preferences: PreferencesStore): void {
   let resolution: DisplayResolution | null = null
   let resolutionRequest: AbortController | undefined
   let resolutionDisplayKey = ''
+  const capture = new CaptureRequest({
+    canCapture: () => isForegroundWindow() && controller.getSnapshot().status === 'playing',
+    displayKey: () => getResolutionDisplayKey(screen.getPrimaryDisplay()),
+    readFrame: (signal) => readIntroductionFrame(mainWindow, screen.getPrimaryDisplay().id, signal)
+  })
 
   /** Keeps OS mode queries distinct from rounded DIP layout and nominal refresh-rate metadata. */
   function getDisplayMetrics(display: Electron.Display): DisplayMetrics {
@@ -152,6 +177,7 @@ function createDesktopDemo(preferences: PreferencesStore): void {
 
   /** Removes invisible blockers first, then restores a normal, non-topmost menu without focus theft. */
   function releaseOverlay(): void {
+    capture.cancel()
     const previousShields = shields
     shields = new Set()
     for (const shield of previousShields) {
@@ -260,6 +286,7 @@ function createDesktopDemo(preferences: PreferencesStore): void {
           shield.showInactive()
         }
         requireActiveOverlay()
+        capture.beginActivation()
         // The menu was already focused. Never call focus/show/restore here to recover activation:
         // an Alt+Tab or Win+Tab during startup belongs to the user, not to a pending Play request.
         // Focus notifications caused by native style changes settle through the owned blur check.
@@ -300,9 +327,10 @@ function createDesktopDemo(preferences: PreferencesStore): void {
         !input.meta &&
         !input.shift
       ) {
-        // Settings owns the editable draft and its discard dialog. Let Escape reach that renderer
-        // instead of bypassing confirmation through a main-process close-settings command.
-        if (controller.getSnapshot().status !== 'settings') {
+        // Settings owns its draft/discard dialog. Active/pending gameplay pauses at the privileged
+        // boundary; Escape in the ready menu does not start play or perform any desktop effect.
+        const snapshot = controller.getSnapshot()
+        if (snapshot.status === 'playing' || snapshot.status === 'paused' || snapshot.activating) {
           event.preventDefault()
           controller.interrupt('paused')
         }
@@ -346,6 +374,29 @@ function createDesktopDemo(preferences: PreferencesStore): void {
     requirePrimary(event)
     if (args.length !== 0) throw new Error('Unexpected preferences arguments.')
     return preferences.getSettledSnapshot()
+  })
+  ipcMain.handle(desktopChannels.captureIntroductionFrame, (event, ...args: unknown[]) => {
+    requirePrimary(event)
+    if (args.length !== 1 || !isCaptureLease(args[0])) throw new Error('Unsupported capture lease.')
+    return capture.request(args[0])
+  })
+  ipcMain.handle(desktopChannels.cancelIntroductionCapture, (event, ...args: unknown[]) => {
+    requirePrimary(event)
+    if (args.length !== 1 || !isCaptureLease(args[0])) throw new Error('Unsupported capture lease.')
+    capture.cancel(args[0])
+  })
+  ipcMain.handle(desktopChannels.introductionProgress, (event, ...args: unknown[]) => {
+    requirePrimary(event)
+    if (args.length !== 0) throw new Error('Unexpected introduction progress arguments.')
+    return introduction.getProgress()
+  })
+  ipcMain.handle(desktopChannels.completeIntroduction, (event, ...args: unknown[]) => {
+    requirePrimary(event)
+    if (args.length !== 0) throw new Error('Unexpected introduction completion arguments.')
+    if (controller.getSnapshot().status !== 'playing' || !isForegroundWindow()) {
+      throw new Error('Introduction completion requires active foreground play.')
+    }
+    return introduction.complete()
   })
   ipcMain.handle(desktopChannels.updatePreferences, (event, ...args: unknown[]) => {
     requirePrimary(event)
@@ -461,12 +512,19 @@ function createDesktopDemo(preferences: PreferencesStore): void {
     } else refreshDisplayLayout()
   })
   const onDisplayChange = (): void => {
+    capture.cancel()
     controller.interrupt('display-changed')
     refreshDisplayResolution()
   }
   screen.on('display-added', onDisplayChange)
   screen.on('display-removed', onDisplayChange)
   screen.on('display-metrics-changed', onDisplayChange)
+  const onSystemInterruption = (): void => {
+    capture.cancel()
+    controller.interrupt('paused')
+  }
+  powerMonitor.on('suspend', onSystemInterruption)
+  powerMonitor.on('lock-screen', onSystemInterruption)
 
   /** Application shutdown owns all external subscriptions; window listeners die with their windows. */
   function dispose(): void {
@@ -476,10 +534,19 @@ function createDesktopDemo(preferences: PreferencesStore): void {
     resolutionRequest?.abort()
     resolutionRequest = undefined
     releaseOverlay()
+    applicationSession.setDisplayMediaRequestHandler(null)
+    applicationSession.setPermissionCheckHandler(null)
+    applicationSession.setPermissionRequestHandler(null)
     ipcMain.removeHandler(desktopChannels.snapshot)
     ipcMain.removeHandler(desktopChannels.command)
     ipcMain.removeHandler(desktopChannels.preferences)
     ipcMain.removeHandler(desktopChannels.updatePreferences)
+    ipcMain.removeHandler(desktopChannels.introductionProgress)
+    ipcMain.removeHandler(desktopChannels.completeIntroduction)
+    ipcMain.removeHandler(desktopChannels.captureIntroductionFrame)
+    ipcMain.removeHandler(desktopChannels.cancelIntroductionCapture)
+    powerMonitor.removeListener('suspend', onSystemInterruption)
+    powerMonitor.removeListener('lock-screen', onSystemInterruption)
     screen.removeListener('display-added', onDisplayChange)
     screen.removeListener('display-removed', onDisplayChange)
     screen.removeListener('display-metrics-changed', onDisplayChange)
@@ -505,8 +572,9 @@ app
       app.getPath('userData'),
       app.getPreferredSystemLanguages()
     )
-    await preferences.load()
-    createDesktopDemo(preferences)
+    const introduction = new IntroductionStore(app.getPath('userData'))
+    await Promise.all([preferences.load(), introduction.load()])
+    createDesktopDemo(preferences, introduction)
   })
   .catch(() => app.quit())
 

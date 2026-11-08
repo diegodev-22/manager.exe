@@ -60,11 +60,44 @@ export interface CursorPosition {
   readonly y: number
 }
 
+/** Per-profile story progress, never a theme/language draft or a main-owned game session. */
+export interface IntroductionProgress {
+  readonly completed: boolean
+  readonly issue: 'load-failed' | 'save-failed' | null
+}
+
+/** Bounded PNG frame held only in memory; dimensions are image pixels, not Electron DIP. */
+export interface IntroductionFrame {
+  readonly width: number
+  readonly height: number
+  readonly bytes: Uint8Array
+}
+
+/** One decoded 4K-class background, not an unrestricted capture or a recording API. */
+export const INTRODUCTION_FRAME_LIMITS = {
+  maximumEdge: 3840,
+  maximumPixels: 8294400,
+  maximumBytes: 12 * 1024 * 1024
+} as const
+
+/** Only UUID-shaped lease identifiers cross capture IPC; they never identify windows or devices. */
+export function isCaptureLease(value: unknown): value is string {
+  return typeof value === 'string' && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/u.test(value)
+}
+
 /**
  * Narrow bridge shared by the sandboxed menu and the main process.
  * Subscription methods return cleanup functions; no Electron event objects cross this boundary.
  */
 export interface DesktopApi {
+  /** One introduction frame per foreground activation, or null on failure/cancellation. No audio/file output. */
+  captureIntroductionFrame(lease: string): Promise<IntroductionFrame | null>
+  /** Cancels only the matching capture; a late old component cannot cancel its replacement. */
+  cancelIntroductionCapture(lease: string): Promise<void>
+  /** Reads the settled introduction marker; missing/unreadable progress means replay, not skip. */
+  getIntroductionProgress(): Promise<IntroductionProgress>
+  /** Marks a fully finished introduction during active play; failures retain the unsaved marker. */
+  completeIntroduction(): Promise<IntroductionProgress>
   /** Reads saved presentation choices, waiting for any previously accepted writes. */
   getPreferences(): Promise<PreferencesSnapshot>
   /** Persists an explicit Save from settings; storage failures return issue codes without applying changes. */
@@ -90,7 +123,11 @@ export const desktopChannels = {
   changed: 'demo:changed',
   cursor: 'demo:cursor',
   preferences: 'settings:get',
-  updatePreferences: 'settings:update'
+  updatePreferences: 'settings:update',
+  introductionProgress: 'introduction:get',
+  completeIntroduction: 'introduction:complete',
+  captureIntroductionFrame: 'introduction:capture-frame',
+  cancelIntroductionCapture: 'introduction:capture-cancel'
 } as const
 
 /** Validates renderer intent before any privileged operation is performed. */

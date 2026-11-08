@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import {
   desktopChannels,
   isDesktopCommand,
+  isCaptureLease,
   type CursorPosition,
   type DemoSnapshot,
   type DesktopApi
@@ -10,6 +11,16 @@ import { isPreferencesUpdate } from '../shared/preferences'
 
 /** Exposes only demo intents and subscriptions, never raw IPC or native window operations. */
 const desktop: DesktopApi = {
+  captureIntroductionFrame: (lease) => {
+    if (!isCaptureLease(lease)) return Promise.reject(new Error('Unsupported capture lease.'))
+    return ipcRenderer.invoke(desktopChannels.captureIntroductionFrame, lease)
+  },
+  cancelIntroductionCapture: (lease) => {
+    if (!isCaptureLease(lease)) return Promise.reject(new Error('Unsupported capture lease.'))
+    return ipcRenderer.invoke(desktopChannels.cancelIntroductionCapture, lease)
+  },
+  getIntroductionProgress: () => ipcRenderer.invoke(desktopChannels.introductionProgress),
+  completeIntroduction: () => ipcRenderer.invoke(desktopChannels.completeIntroduction),
   getPreferences: () => ipcRenderer.invoke(desktopChannels.preferences),
   updatePreferences: (update) => {
     if (!isPreferencesUpdate(update))
