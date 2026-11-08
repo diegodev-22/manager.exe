@@ -55,6 +55,8 @@ See [changelog maintenance](CONTRIBUTING.md#changelog-maintenance) for contribut
 
 ### Changed
 
+- Condensed contributor and agent guidance into task-oriented policies, replacing duplicated
+  implementation narratives with source links while retaining safety, GitFlow, and verification rules.
 - Shortened the English and Spanish READMEs to the project overview, current demo, controls, and setup;
   contributor implementation details remain in the contribution guide.
 - Centered the initial menu and settings within the Windows work area, with pause menus anchored
