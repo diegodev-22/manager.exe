@@ -3,7 +3,7 @@
 Thanks for helping build Manager.exe. Whether you are reporting a confusing instruction, improving
 accessibility, fixing a bug, or proposing a game mechanic, a clear and focused contribution is welcome.
 
-The project has an early Windows desktop interaction demo: menus, a transparent test surface, and
+The project has an early Windows desktop interaction demo: menus, a transparent gameplay surface, and
 input shields are connected to the pure game-state core. Theme and language settings are implemented,
 but there are no finished minigames. Multi-monitor and broader Windows desktop acceptance still need manual
 verification. Keep implemented code separate from verified desktop behavior and future plans.
@@ -71,7 +71,7 @@ git switch --no-track -c feature/short-description upstream/develop
 | `src/renderer/src/`            | React components, CSS, and future game presentation.                           |
 | `src/shared/game/`             | Pure TypeScript lifecycle rules, independent of React, DOM, and Electron.      |
 | `src/renderer/src/components/` | React components such as the gameplay surface.                                 |
-| `src/renderer/src/assets/`     | CSS, the cursor sprite, and locally bundled fonts with their licenses.         |
+| `src/renderer/src/assets/`     | CSS, authored cursor/supervisor artwork, and locally bundled fonts/licenses.   |
 | `build/`                       | Versioned packaging resources, including the Windows icon.                     |
 | `out/` and `dist/`             | Generated application and distribution output; never edit or commit these.     |
 
@@ -116,7 +116,7 @@ For the current implementation, start with these owners:
 | [`src/shared/game/game-state.ts`](src/shared/game/game-state.ts)                                           | Pure state transitions and session-reference preservation.                                        |
 | [`src/preload/index.ts`](src/preload/index.ts)                                                             | Scoped bridge implementation, with no raw IPC exposed to React.                                   |
 | [`src/renderer/src/App.tsx`](src/renderer/src/App.tsx)                                                     | Menu presentation, keyboard navigation, and snapshot subscription.                                |
-| [`src/renderer/src/components/GameSurface.tsx`](src/renderer/src/components/GameSurface.tsx)               | Cursor rendering, idle help, and mounted gameplay presentation.                                   |
+| [`src/renderer/src/components/GameSurface.tsx`](src/renderer/src/components/GameSurface.tsx)               | Introduction handoff, cursor rendering, idle help, and mounted gameplay presentation.             |
 | [`src/renderer/src/components/SettingsPanel.tsx`](src/renderer/src/components/SettingsPanel.tsx)           | Accessible theme/language choices and return navigation.                                          |
 | [`src/renderer/src/components/DisplayInformation.tsx`](src/renderer/src/components/DisplayInformation.tsx) | Three read-only display values in minimal pixel-framed rows.                                      |
 | [`src/renderer/src/hooks/use-preferences.ts`](src/renderer/src/hooks/use-preferences.ts)                   | Committed presentation preferences, explicit saving, and failure feedback.                        |
@@ -183,10 +183,14 @@ small menu window and gameplay. The renderer keeps menu cards compact and shares
 background fade across menus, settings, pause, and play. The window is not movable, exclusive
 fullscreen, or kiosk mode; menu titles do not drag it away from the display edges. Display changes
 realign every view to the current primary bounds. The primary window stays in normal z-order even
-during play; promoting it to always-on-top caused focus/hit-testing regressions in the audited Windows
-environment. Only active secondary input shields use always-on-top. Primary transparent-area hit testing,
+during play to avoid Windows focus/hit-testing regressions. Only active secondary input shields
+use always-on-top. Primary transparent-area hit testing,
 taskbar overlap, and broader task switching remain
 manual Windows acceptance checks; do not infer click-through from visual transparency.
+Keep the root CSS `color-scheme` neutral and the `html`, `body`, and React root backgrounds
+transparent. Apply native light/dark control schemes below the document root so Chromium's default
+canvas color cannot replace desktop transparency. Menu margins show the real moving desktop;
+there is no menu screenshot, refresh timer, or live capture stream.
 Within the primary window, use Windows' reported work area for menu layout. The main process
 converts screen-space bounds/workArea to clamped DIP insets, which travel in revisioned snapshots;
 the controller stores this presentation metadata without changing the pure lifecycle or session.
@@ -200,8 +204,8 @@ pending geometry on user-driven focus, changing bounds only if necessary. Overla
 validate foreground state before preparation/entry, and cancellation identity, lifecycle status, and
 minimization around native side effects. Let the owned focus-loss check settle transient native blur;
 never call `focus`, `show`, or `restore` to recover a pending Play/Resume. Renderer DOM focus restoration
-also waits for a visible, focused document. See the limited executed audit under verification rather
-than assuming these safeguards establish compatibility with every Windows/display configuration.
+also waits for a visible, focused document. These safeguards do not establish compatibility with
+every Windows/display configuration; follow the manual acceptance guidance under verification.
 
 ### Display adaptation and diagnostics
 
@@ -220,7 +224,10 @@ administrator privileges, and changes no system settings. A blocked/unavailable 
 unavailable value, never guessed dimensions. Unchanged focus returns reuse the resolution cache.
 
 The cursor already uses on-demand `requestAnimationFrame` with transforms outside per-frame React
-state. Leave synchronization to Chromium/Windows; Hz is not a measured FPS target or instantaneous
+state. CSS places its initial hotspot at the primary surface's center, including after the
+introduction and on resume, until the first real movement replaces it with primary-local coordinates.
+This never repositions the Windows system cursor. Leave synchronization to Chromium/Windows;
+Hz is not a measured FPS target or instantaneous
 VRR rate. Do not add a fixed 60 FPS timer, offscreen-only frame-rate API, GPU-disabling flags, or an
 idle gameplay loop. Settings has only three display rows: FPS, Screen resolution, and Scaling, with
 labels on the left and read-only pixel-framed values on the right. The requested FPS label reports
@@ -233,7 +240,131 @@ recessed pixel frames and a default cursor, not raised button shadows or hover/p
 Preserve text contrast in both themes; do not dim the entire element with opacity or add disabled
 form controls merely to style static information.
 
-No simulation or automatic quality scaler is introduced for the current cursor-only demo. A real
+The screen supervisor design preview uses one renderer-owned animation loop only during visible,
+focused play, independent of the on-demand cursor. Its 64x48px floating shell and discrete face layers
+use an integer CSS scale up to 2x (128x96 CSS pixels), falling back to 1x on smaller views. There are
+no humanoid arms, legs, or torso. Reduced motion stops its loop and shows a still pose.
+Renderer-owned preview storage survives pause/settings unmounts, but not a renderer reload;
+it never changes the main-owned session. Resizing clamps the full sprite to the primary surface.
+The preview has no attacks, damage, secondary-display movement, or desktop privileges.
+
+Play now begins with a renderer-owned Manager introduction: an empty
+beat, automatic temporary desktop-background zoom, a white/gray smoke pop, a sleepy wake-up,
+interactive dialogue, and zoom-out into roaming. Windows zoom/settings are never modified. The pure game
+lifecycle remains `playing` throughout; Esc pauses any stage without a visible hint during the intro.
+The menu owns the retained timeline across pause/settings. Only glyph/phase changes enter React
+state; animation frames own camera/sprite transforms. Only left click or unmodified Enter first
+completes typing, then advances the sentence. Space is suppressed, including native button key-up
+activation, and held Enter does not skip sentences. The reusable speech balloon reserves the current sentence's width, uses
+stepped corners and hard shadows, and stays just above and slightly right of the actor.
+Screen readers receive whole sentences, not per-character announcements. A compact single-line
+Click · Enter hint sits inside the solid balloon's lower edge, without an extra card, icons, or action
+row. Its tiny stepped arrow only animates when the sentence is complete, without flashing or moving
+the speech text. Stable, localized accessible instructions and reveal/continue action labels remain
+available even though the decorative hint is hidden from screen readers.
+All input remains local to the game surface; other mouse buttons do
+not advance the dialogue.
+
+`getIntroductionFacePose` in `src/renderer/src/manager-introduction.ts` first directs closed/downcast
+eyes, heavy half-open lids with a sleepy blink, open eyes still looking down, then eye contact and
+a small smile. Ambient blink timing cannot override these authored wake-up poses. Dialogue then uses
+friendly, skeptical, confident, playful, and pleased acting by story line, independent of translation.
+The reusable supervisor sprite has sleepy eyelids/brows and closed/half/open LED mouth frames. The existing
+foreground animation loop selects talking frames at 9 Hz while letters appear, resting at spaces,
+punctuation, full reveal, and completion. It is silent typewriter-linked acting, not audio lip sync.
+It never adds per-frame React state or another timer/loop, and pause/settings retain the actor clock.
+Reduced motion removes zoom, smoke, waking motion, typing, mouth cycling, and prompt animation but
+keeps each sentence's static facial expression and a visible, usable continuation cue. The static
+pre-dialogue greeting is shortened to 0.35 seconds instead of holding a sleeping pose for 4.5 seconds.
+The background and actor/smoke camera share the same zoom, up to 2x, toward the screen center
+through the entrance, dialogue, and closing zoom-out. Manager appears enlarged during the close-up
+and returns continuously to his original size; completion hands off at 1x. The balloon
+counter-scales to preserve text readability, and its width/vertical budget reserves room above the
+enlarged actor, limiting zoom on short/narrow surfaces before sacrificing readable speech/controls.
+A final 0.25-second settle runs at 1x after the image has been released.
+The same entrance image remains behind the dialogue and the pull-back, so the conversation and the
+zoom-out share one stable background. It is cleared and its Blob URL revoked when the camera reaches
+1x (`return-live`/`complete`), never in the middle of the dialogue. `cameraEnabled` keeps the actor
+perspective across dialogue/pause/zoom-out. `needsIntroductionCapture` includes the entrance phases,
+dialogue, and zoom-out; `return-live` and `complete` hold no pixels. Pause discards the image, and an
+explicit Resume recaptures only while the introduction is unfinished, without restarting dialogue.
+
+The balloon anchors its own bottom edge, not a group containing a separate footer. Main camera
+scale, text counter-scale, and the actor's source-pixel bob all contribute to its offset, preserving
+a four-CSS-pixel gap between the tail tip and the head. `ACTOR_HEAD_TOP` and `BALLOON_TAIL_REACH`
+in `ManagerIntroduction.tsx` document the sprite/SVG geometry; update them with any tail/art changes.
+Its rightward nudge is at most 20 viewport CSS pixels, reduced on very narrow surfaces. The tail
+counter-offset uses text-local coordinates so the head alignment survives camera/text scaling;
+the width budget reserves the extra right-hand margin instead of letting long sentences clip.
+
+The 1.4-second pop/smoke beat is painted by `src/renderer/src/introduction-arrival.ts` over static artwork in
+`components/IntroductionArrival.tsx`. Twelve paired smoke puffs expand to the sides in white and
+neutral grays only, behind the actor and away from the face. The impact itself remains quick; the
+smoke expands more gently, holds its volume longer, and dissolves across the final 58% of the beat.
+The character rests closer to center in a gently lowered, eyes-closed/downcast pose after a small
+squash/stretch rebound. The existing `greeting` presentation phase owns a 4.5-second wake-up before
+any dialogue input becomes active. Whole-body keyframes favor restrained vertical breathing over
+lateral wobble: sideways drift stays below one local CSS pixel during waking, lean stays within
+1.6 degrees, and straightening has only a small upward overshoot without a sideways counter-swing.
+Final scale is exactly 1x with zero tilt. Idle bob blends back in at the
+end; eyebrow/eyelid/gaze changes stay authored on the source-pixel grid. The previous colored
+particles, energy brackets/rings, aura, and CRT boot mask/scan have been removed, not hidden behind
+another effect. The existing foreground timeline owns every pose and puff: no extra timers,
+emitters, randomness, per-frame React state, blur filters, screen shake, or full-screen flashes.
+Pause resumes the same progress through pop, closed eyes, waking gaze, and body settling. The
+smoke artwork is memoized independently of typewriter updates. These are bounded design choices,
+not a claim of measured performance or verified visual quality.
+
+Play starts directly without an in-game permission dialog. The maintainer explicitly approved this
+automatic capture behavior; this does not bypass Windows protections or change any system permission.
+No images are acquired at app startup or while browsing menus. Reduced motion skips capture entirely.
+`src/main/capture-request.ts` owns one
+attempt per explicit foreground activation and rejects stale/focus/display-invalid results. Requests
+remain serialized; this is not periodic capture, runs only while the introduction is unfinished, and
+never runs in menus or roaming.
+`src/main/introduction-capture.ts` enumerates screen identities with zero-sized thumbnails, selects
+only the main-owned primary display ID, and acquires one stored frame in a disposable sandboxed
+window with a private memory-only session. The game renderer/shields themselves have no media or
+display-capture permission. No system picker, audio, recording, network transfer, or image file is used.
+The helper stops all tracks before returning PNG bytes and is destroyed on completion/abort or its
+3.5-second deadline, including a stalled acquisition renderer. A brief stream can deliver intermediate
+frames internally; only one is retained, rather than claiming there is no capture stream at all.
+
+Windows 10 build 19041+ is required for temporary window capture exclusion. The existing primary
+window is never hidden or focused by capture. Its prior content-protection flag is restored after
+acquisition; the helper waits briefly for composition and the renderer also hides scene artwork while
+preparing. This transient protection can affect other screen-capture software during acquisition.
+Do not bypass protected content, remote-session restrictions, local policy, or capture failure.
+Unavailable capture uses a localized no-zoom fallback, keeping dialogue and non-camera effects.
+
+Frame output is capped at a 3840-pixel edge, 8,294,400 pixels, and 12 MiB encoded PNG. One decoded
+4K RGBA image is about 31.6 MiB; copies, capture surfaces, and compositor allocations mean this is
+not a total-process memory limit. `src/renderer/src/introduction-background.ts` bounds decoding,
+owns an abortable lease/Blob URL, and never puts pixel data in React state or persistence. The
+renderer CSP permits image-only Blob URLs, not Blob scripts or unrestricted network access.
+Blur, pause, settings, display changes, suspend/lock, reload, completion, and shutdown release or
+invalidate resources. Explicit Resume recaptures the current desktop only while the introduction is
+unfinished (entrance, dialogue, or closing zoom-out), without restarting the dialogue or enabling a
+zoom the player never saw. The timeline and actor perspective survive without retaining stale pixels.
+Enabling animation again after reduced motion never silently starts another capture.
+Renderer reload resets the renderer-local preview timeline, not the saved completion marker.
+
+`INTRODUCTION_PREVIEW_ENABLED` in `src/renderer/src/manager-introduction.ts` is temporarily enabled
+for visual iteration. It replays on each renderer/app startup regardless of saved completion,
+suppresses progress-storage warnings, and sends no completion writes. Pause/settings still retain
+the current timeline. Disable this single switch to restore the once-per-profile policy below;
+do not delete or overwrite player progress merely to replay the scene.
+
+`src/main/introduction-store.ts` persists only the completed marker at
+`userData/progress/introduction.json`, using a 256-byte versioned schema. Completion is saved only
+after zoom-out; closing earlier replays the introduction. The narrow primary-frame IPC takes no
+arguments and accepts completion only during foreground play. Failed reads replay with localized
+feedback; failed writes leave the marker unsaved and retry on explicit resume, not on a timer.
+`src/main/profile-storage.ts` shares bounded JSON reads and temporary-file replacement with
+`PreferencesStore`, preserving its existing schema and explicit-Save semantics. Interrupted timeline
+details are renderer-local, not saved to disk. These new paths still need manual Windows acceptance.
+
+No combat simulation or automatic quality scaler is introduced for the current preview. A real
 minigame should separate fixed-step rules from interpolated presentation and measure frame times
 before adding quality adaptation. Do not claim performance improvements without measurements.
 
@@ -549,15 +680,6 @@ Do not add or execute tests, install a test runner, or launch scripted Electron/
 unless the user explicitly requests testing. The maintainer performs manual gameplay checks.
 Formatting, lint, type checking, and compilation remain available static checks.
 
-A maintainer-authorized temporary focus audit passed 16 pure/controller checks and 13 desktop
-scenarios on Windows with one display at 175% scaling. The desktop scenarios used native Play/Resume
-clicks and Escape, actual Alt+Tab round trips, Win+Tab departure followed by native restoration,
-clicks/typing in an isolated target window, settings drafts/discard/save, and pending-activation races.
-A display-metrics notification while minimized was simulated; display hardware/DPI were not changed.
-Temporary test scripts, instrumentation, and isolated profiles were removed afterward. No permanent
-test runner, probes, or CI were added. Multi-monitor shielding, other Windows versions, and taskbar
-selection behavior beyond the tested native restoration paths remain unverified.
-
 For interface and desktop changes, describe what the maintainer should check: menu controls,
 Escape pause, explicit resume, Alt+Tab/Win+Tab, transparent click shielding, cursor visibility,
 display changes, and complete shutdown. Do not claim those scenarios were verified just because
@@ -582,11 +704,49 @@ prompt from diagnostics alone. Change resolution/Hz/DPI or the primary display w
 Manager.exe must stay minimized, refresh its readings on return, preserve the draft, and not resume.
 Check left-label/right-value alignment and pixel frames in both themes. Nominal Hz may be rounded by
 Windows/Electron, and VRR does not guarantee a matching callback/presentation rate.
-The native display readings and later settings refinements, including keeping settings open after
-Save, were not covered by the earlier temporary focus audit.
+Native display readings and settings focus retention after Save need manual acceptance.
+
+For the supervisor preview, check bright/dark/busy desktop backgrounds, face readability, all edge
+rebounds, and small/portrait displays. Verify blinking, gaze, smiles, and pause/resume with no position
+reset or time jump, including a visit to settings. Check dynamic reduced-motion changes, fractional
+Windows scaling, resize/primary-display changes, cursor/help layering, and normal focus-loss cleanup.
+The artwork and animation need manual visual review.
+
+For first-play introduction acceptance, use a fresh disposable app profile: check the empty opening
+has no actor/cursor/Esc hint, camera framing, white/gray side smoke, the wake-up sequence, and five localized
+balloons. Left click/Enter must complete or advance only once per activation, without key-repeat
+skipping. Space, including press/release on a focused balloon, and right/middle clicks must not advance.
+Check sentence-specific eyebrows/gaze/smiles and that mouth motion stops at punctuation and full
+reveal, including when typing is skipped. The single-line click/Enter hint must remain legible inside
+the balloon without crowding speech. The slightly right-shifted balloon's tail must stay aligned and close to Manager through idle
+bob, text changes, pause/resume, reduced motion, and resizing. Only the tiny ready arrow animates
+in active play; reduced motion must leave it static.
+Check every phrase fits in landscape/portrait/small views, both locales, and fractional DPI.
+Check that the actor first pops in with closed eyes and a downward gaze; the lateral smoke must be
+white/neutral gray only. Eyes must open with heavy sleepy lids while still looking down, then look
+at the player as the whole body gently straightens. No colored particles or boot overlay should
+appear, and dialogue must wait for eye contact and settling. Check the pop/rebound, breathing,
+lean/lift, and final handoff on bright/dark desktops and fractional DPI. Esc/Alt+Tab during the pop,
+closed-eye hold, sleepy blink, gaze lift, and body settling must preserve the stage without another
+pop on Resume. Changing reduced motion mid-entry must settle the actor, hide smoke, and avoid a
+long static waking wait.
+Keep the desktop image visible through every sentence and the entire closing zoom-out; release it
+only at normal 1x. Finish using Enter without moving the mouse: the virtual cursor must first appear
+at the screen center, then follow real movement without a top-left flash. Check resume and the
+already-completed introduction path as well; neither may move the Windows cursor.
+Pause or Alt+Tab during every phase and during partial text, visit settings, then explicitly resume:
+no time jump, replay, automatic resume, or hidden input blocker is allowed. Finish, restart with the
+same profile, and confirm replay while preview mode is enabled. With preview disabled, completion
+must skip future introductions; closing before completion must replay on next startup.
+Check reduced motion (including changes mid-scene), read/save failure feedback in a disposable
+profile, and unchanged explicit preference saving after the shared profile IO extraction.
 
 A successful build does not establish that desktop input, focus handling, accessibility, or an
 installer works correctly. Record those checks separately, including anything you could not verify.
+
+Do not retain test/audit scripts, profiles, reports, or desktop pixels. Real monitor hot-plug/DPI/HDR
+changes, secure desktop/actual lock or suspend, Win+Tab, remote sessions, other Windows/GPU
+configurations, cursor capture, and final visual/accessibility review remain manual acceptance work.
 
 ## Pull requests
 

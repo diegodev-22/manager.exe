@@ -12,8 +12,20 @@ without a separately approved task and verification.
 
 The application has an early Windows interaction demo with menus, transparent overlays, and a
 virtual cursor connected to the pure lifecycle core, plus theme and language settings. Finished
-minigames are not implemented. A temporary single-display Windows focus audit was executed;
-broader task-switching and multi-monitor acceptance still need manual verification.
+minigames are not implemented. A renderer-owned first-play introduction leads into the floating
+supervisor preview; completion storage is separate from settings. Temporary preview mode replays
+the introduction on each app startup without changing saved progress. Play automatically acquires a
+memory-only primary-screen frame without an in-game permission dialog. The background and Manager
+share perspective zoom; text counter-scales. That frame lasts through the entrance, dialogue, and
+the closing zoom-out, then is released at normal 1x; menus and roaming never hold pixels. Pause
+discards the frame; explicit resume recaptures while the introduction is unfinished, without
+restarting dialogue. Acquisition runs in an isolated disposable window, never the game renderer.
+Dialogue uses authored facial expressions and typing-linked mouth frames. Only left click or Enter
+advances; a minimal inline control hint respects reduced motion. A white/gray side-smoke pop leads
+into a closed-eye, downcast, sleepy wake-up with whole-body acting before eye contact and dialogue. Its retained
+foreground clock survives pause; reduced motion skips the acting. The balloon nudges right while its
+tail stays anchored above Manager. Visuals, task switching, and multi-monitor acceptance need manual
+verification. Do not retain test/audit scripts or reports.
 Keep implemented code, executed checks, and planned behavior separate in documentation and reports.
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) for contributor policy, GitFlow, and PR expectations.

@@ -1,6 +1,5 @@
-import { mkdir, open, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { randomUUID } from 'node:crypto'
+import { readProfileJson, writeProfileJson } from './profile-storage'
 import {
   getDefaultPreferences,
   isAppPreferences,
@@ -23,33 +22,22 @@ export class PreferencesStore {
   private issue: PreferencesSnapshot['issue'] = null
   private queue: Promise<void> = Promise.resolve()
   private preferences: AppPreferences
-  private readonly directory: string
   private readonly file: string
 
   /**
+   * Initializes the profile path and first-launch choices before reading saved preferences.
    * @param userData - Electron's main-owned userData path, never a renderer-supplied directory.
    * @param systemLanguages - OS language preferences, used only until valid saved choices are loaded.
    */
   constructor(userData: string, systemLanguages: readonly string[]) {
-    this.directory = join(userData, 'settings')
-    this.file = join(this.directory, 'preferences.json')
+    this.file = join(userData, 'settings', 'preferences.json')
     this.preferences = getDefaultPreferences(systemLanguages)
   }
 
   /** Loads once before window creation. Missing files are normal; other failures are user-visible. */
   async load(): Promise<void> {
     try {
-      const file = await open(this.file, 'r')
-      let contents: string
-      try {
-        const buffer = Buffer.alloc(MAX_PREFERENCES_BYTES + 1)
-        const { bytesRead } = await file.read(buffer, 0, buffer.length, 0)
-        if (bytesRead > MAX_PREFERENCES_BYTES) throw new Error('Preferences file is too large.')
-        contents = buffer.subarray(0, bytesRead).toString('utf8')
-      } finally {
-        await file.close()
-      }
-      const stored: unknown = JSON.parse(contents)
+      const stored = await readProfileJson(this.file, MAX_PREFERENCES_BYTES)
       if (
         typeof stored !== 'object' ||
         stored === null ||
@@ -86,23 +74,13 @@ export class PreferencesStore {
   update(update: PreferencesUpdate): Promise<PreferencesSnapshot> {
     const result = this.queue.then(async () => {
       const next = { ...this.preferences, ...update }
-      // Unique names avoid collisions if two application instances save at the same time.
-      const temporary = join(this.directory, `preferences.${randomUUID()}.tmp`)
       try {
-        await mkdir(this.directory, { recursive: true })
-        await writeFile(
-          temporary,
-          `${JSON.stringify({ version: 1, preferences: next }, null, 2)}\n`,
-          { flag: 'wx' }
-        )
-        await rename(temporary, this.file)
+        await writeProfileJson(this.file, { version: 1, preferences: next })
         this.preferences = next
         this.issue = null
       } catch {
         // Do not report success or leak filesystem diagnostics through the player-facing bridge.
         this.issue = 'save-failed'
-      } finally {
-        await rm(temporary, { force: true }).catch(() => {})
       }
       this.revision += 1
       return this.getSnapshot()

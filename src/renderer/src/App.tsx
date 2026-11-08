@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { DemoSnapshot, DesktopCommand } from '../../shared/desktop-api'
+import type { DemoSnapshot, DesktopCommand, IntroductionProgress } from '../../shared/desktop-api'
 import type { PreferencesSnapshot } from '../../shared/preferences'
 import fontLicenseUrl from './assets/fonts/OFL.txt?url&no-inline'
 import GameSurface from './components/GameSurface'
@@ -8,24 +8,28 @@ import SettingsPanel from './components/SettingsPanel'
 import { usePreferences } from './hooks/use-preferences'
 import { demoMessageKeys } from './i18n'
 import { navigateMenu } from './menu-navigation'
+import { createSupervisorPreviewState } from './screen-supervisor-preview'
+import { createManagerIntroduction } from './manager-introduction'
+import { useIntroductionProgress } from './hooks/use-introduction-progress'
 
-/** Saved presentation preferences are loaded before the first menu render. */
+/** Saved preferences and the settled introduction marker are loaded before the first menu render. */
 interface AppProps {
   initialPreferences: PreferencesSnapshot
+  initialIntroduction: IntroductionProgress
 }
 
 /** Presents main-process state. Shield pages intentionally receive no controls or preload bridge. */
-function App({ initialPreferences }: AppProps): React.JSX.Element {
+function App({ initialPreferences, initialIntroduction }: AppProps): React.JSX.Element {
   const shield = new URLSearchParams(window.location.search).get('surface') === 'shield'
   return shield ? (
     <div className="input-shield" aria-hidden="true" />
   ) : (
-    <DemoMenu initialPreferences={initialPreferences} />
+    <DemoMenu initialPreferences={initialPreferences} initialIntroduction={initialIntroduction} />
   )
 }
 
 /** Owns bridge subscriptions and errors; StrictMode cleanup prevents duplicate listeners. */
-function DemoMenu({ initialPreferences }: AppProps): React.JSX.Element {
+function DemoMenu({ initialPreferences, initialIntroduction }: AppProps): React.JSX.Element {
   const { t } = useTranslation()
   const { preferences, issue, saving, savePreferences, clearSaveIssue } =
     usePreferences(initialPreferences)
@@ -35,6 +39,20 @@ function DemoMenu({ initialPreferences }: AppProps): React.JSX.Element {
   const menuButton = useRef<HTMLButtonElement>(null)
   const settingsButton = useRef<HTMLButtonElement>(null)
   const previousStatus = useRef<DemoSnapshot['status'] | undefined>(undefined)
+  // Visual-only storage outlives the playing surface; never replace or mutate the main-owned session.
+  const supervisorPreview = useRef(createSupervisorPreviewState())
+  const introduction = useRef(createManagerIntroduction(initialIntroduction.completed))
+  const { issue: introductionIssue, completeIntroduction } =
+    useIntroductionProgress(initialIntroduction)
+  const placeSupervisorAfterIntroduction = useCallback(
+    (actorSeconds: number, x: number, y: number): void => {
+      const preview = supervisorPreview.current
+      preview.elapsedSeconds = actorSeconds
+      preview.x = x
+      preview.y = y
+    },
+    []
+  )
   const playing = snapshot?.status === 'playing'
   const status = snapshot?.status
 
@@ -94,7 +112,16 @@ function DemoMenu({ initialPreferences }: AppProps): React.JSX.Element {
     }
   }
 
-  if (playing) return <GameSurface />
+  if (playing)
+    return (
+      <GameSurface
+        supervisorPreview={supervisorPreview}
+        introduction={introduction}
+        introductionIssue={introductionIssue}
+        onIntroductionComplete={completeIntroduction}
+        onIntroductionFinished={placeSupervisorAfterIntroduction}
+      />
+    )
 
   const paused = status === 'paused'
   const busy = !snapshot || snapshot.activating || status === 'exiting'
@@ -176,6 +203,13 @@ function DemoMenu({ initialPreferences }: AppProps): React.JSX.Element {
                 {issue === 'load-failed'
                   ? t(($) => $.errors.loadPreferences)
                   : t(($) => $.errors.savePreferences)}
+              </p>
+            )}
+            {introductionIssue && (
+              <p className="error" role="status">
+                {introductionIssue === 'load-failed'
+                  ? t(($) => $.errors.loadIntroduction)
+                  : t(($) => $.errors.saveIntroduction)}
               </p>
             )}
             {error && (
