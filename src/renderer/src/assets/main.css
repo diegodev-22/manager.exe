@@ -419,6 +419,9 @@ button[aria-busy='true'] {
   image-rendering: pixelated;
   pointer-events: none;
   will-change: transform;
+  /* Start at the screen center before the first movement packet, including the intro handoff.
+     The cursor owner replaces this with primary-local coordinates without moving Windows' cursor. */
+  transform: translate3d(50vw, 50vh, 0);
 }
 
 @media (prefers-reduced-motion: reduce) {
