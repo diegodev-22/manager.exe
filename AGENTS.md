@@ -1,197 +1,72 @@
 # Repository guidelines
 
-## Project context
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before changing this repository; it owns architecture,
+naming, desktop safety, GitFlow, and verification policy. Inspect the source for implementation
+details; the [README](README.md) is only the overview. These instructions add agent-specific guardrails.
 
-Manager.exe is an open-source Windows desktop arcade game built with Electron, React, TypeScript,
-and CSS, built around a planned collection of minigames and an original antagonist.
-Keep public documentation focused on Manager.exe; do not reference private projects or their characters.
+## Scope and workflow
 
-Windows is the only current development and packaging target. macOS and Linux are possible future
-adaptations, not supported platforms. Do not implement their integration or claim compatibility
-without a separately approved task and verification.
+- Manager.exe is an open-source Electron/React/TypeScript/CSS Windows arcade game in early
+  development. The demo includes menus, settings, an introduction, and a floating supervisor;
+  finished minigames are not implemented. Do not claim macOS/Linux support or add it speculatively.
+- Keep public documentation focused on Manager.exe, never private projects or their characters.
+- Check the current branch and working tree first. Preserve unrelated work and inspect existing
+  helpers/consumers before editing. Make only requested changes; avoid speculative abstractions.
+- Work from `develop` in `feature/<short-description>`; target feature PRs at `develop`. Follow the
+  separate release/hotfix paths in [GitFlow](CONTRIBUTING.md#gitflow), not routine work on `main`.
+- Use Node.js 24 LTS and pinned pnpm 10.34.9 (`npx --yes pnpm@10.34.9` if unavailable). Commands are
+  listed in the [README](README.md#available-commands). Do not install global tools or change
+  dependencies/lockfiles without scope approval, especially for documentation-only work.
 
-The application has an early Windows interaction demo with menus, transparent overlays, and a
-virtual cursor connected to the pure lifecycle core, plus theme and language settings. Finished
-minigames are not implemented. A renderer-owned first-play introduction leads into the floating
-supervisor preview; completion storage is separate from settings. Temporary preview mode replays
-the introduction on each app startup without changing saved progress. Play automatically acquires a
-memory-only primary-screen frame without an in-game permission dialog. The background and Manager
-share perspective zoom; text counter-scales. That frame lasts through the entrance, dialogue, and
-the closing zoom-out, then is released at normal 1x; menus and roaming never hold pixels. Pause
-discards the frame; explicit resume recaptures while the introduction is unfinished, without
-restarting dialogue. Acquisition runs in an isolated disposable window, never the game renderer.
-Dialogue uses authored facial expressions and typing-linked mouth frames. Only left click or Enter
-advances; a minimal inline control hint respects reduced motion. A white/gray side-smoke pop leads
-into a closed-eye, downcast, sleepy wake-up with whole-body acting before eye contact and dialogue. Its retained
-foreground clock survives pause; reduced motion skips the acting. The balloon nudges right while its
-tail stays anchored above Manager. Visuals, task switching, and multi-monitor acceptance need manual
-verification. Do not retain test/audit scripts or reports.
-Keep implemented code, executed checks, and planned behavior separate in documentation and reports.
+## Implementation constraints
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) for contributor policy, GitFlow, and PR expectations.
-Use [README.md](README.md) for the project overview, not as a substitute for inspecting the code.
+- Preserve electron-vite process boundaries: main owns privileges, preload exposes a narrow typed
+  API, renderer owns presentation, and shared owns portable contracts/rules. Validate IPC senders
+  and untrusted data; never expose raw IPC or Node.js to React.
+- Write source, comments, commits, PR titles, and canonical documentation in English; localized
+  player text and translated READMEs are exceptions. Keep strict TypeScript, the Rules of Hooks,
+  existing naming/formatting, and CSS styling; no unapproved frameworks or engines.
+- Use concise TSDoc for exported/nontrivial responsibilities and comments for non-obvious reasons,
+  ownership, units, and cleanup. Keep them current; avoid narration and hypothetical generalization.
+- Follow [game lifecycle](CONTRIBUTING.md#game-lifecycle): preserve exact session references through
+  pause/resume/settings, recorded settings origins, no-op identity, and terminal `exiting`.
+- Settings remain local drafts until Save succeeds. Back/Esc confirms discard and never applies a
+  draft or resumes play. Use bundled i18next catalogs for all player-facing text/accessibility;
+  pass stable message codes across IPC. See [preferences](CONTRIBUTING.md#preferences-and-localization).
 
-## Repository map
+## Desktop invariants
 
-- `src/main/`: Electron windows, application lifecycle, and future privileged desktop operations.
-- `src/preload/`: Narrow, typed demo API bridge; never raw IPC.
-- `src/shared/`: Serializable bridge contracts and command validation.
-- `src/shared/game/`: Pure game lifecycle rules shared across process boundaries.
-- `src/renderer/src/`: React interface, CSS, and future game presentation.
-- `build/`: Authored packaging resources. Keep the Windows icon versioned.
-- `out/` and `dist/`: Generated output. Do not edit or commit it.
-- `package.json`: Available scripts and the pinned package manager.
-- `pnpm-lock.yaml`: Dependency lockfile. Keep it versioned.
-
-Preserve the existing electron-vite structure. Do not introduce a monorepo, framework, game engine,
-or speculative directory hierarchy without an agreed requirement.
-Follow [layout and naming](CONTRIBUTING.md#layout-and-naming) and
-[files in Git](CONTRIBUTING.md#files-in-git). Shared code must not import process-specific layers.
-
-## Development commands
-
-Use Node.js 24 LTS and the pnpm version in `package.json` (currently 10.34.9). Run commands from the
-repository root.
-
-| Command                          | Purpose                                  |
-| -------------------------------- | ---------------------------------------- |
-| `pnpm install --frozen-lockfile` | Install the locked dependency graph.     |
-| `pnpm dev`                       | Start the development application.       |
-| `pnpm format:check`              | Check formatting without changing files. |
-| `pnpm lint`                      | Run ESLint.                              |
-| `pnpm typecheck`                 | Check application types.                 |
-| `pnpm build`                     | Check types and compile the application. |
-| `pnpm start`                     | Preview an existing compiled build.      |
-| `pnpm build:unpack`              | Build an unpacked Windows application.   |
-| `pnpm build:win`                 | Build the Windows installer.             |
-
-If pnpm is unavailable, use `npx --yes pnpm@10.34.9` in its place. Do not install global tools,
-replace the package manager, or add unrelated dependencies without approval.
-
-## Architecture boundaries
-
-- Keep Electron and Node.js privileges in the main process, not in React components.
-- Expose only explicitly scoped APIs through preload when needed. Do not expose raw IPC objects.
-- Validate untrusted data and IPC senders at their owning boundary, then pass typed data inward.
-- Keep future game rules independent of React, the DOM, and Electron where practical.
-- Keep shared game logic portable and isolate Windows-specific integration in the desktop layer.
-  Do not add unused macOS or Linux implementations for speculative future support.
-- Keep simulation state out of per-frame React renders. Prefer transforms for moving visual elements
-  and bounded Canvas effects when gameplay is introduced.
-- Give event listeners, timers, animation loops, and input capture a clear lifecycle and cleanup owner.
-
-The core starts in `ready`. Settings open from `ready` or `paused` and close back to their recorded
-origin; resuming is explicit. Preserve the caller's exact session reference through pause, resume,
-and settings opened from pause. Settings opened from `ready` must not create a session.
-Unsupported actions return the same state object. `exit` enters terminal `exiting`, which ignores
-all further actions. This is a shutdown request, not an Electron side effect. See
-[game lifecycle](CONTRIBUTING.md#game-lifecycle) before changing these rules.
-
-## Coding conventions
-
-- Write all source code, identifiers, comments, test descriptions, commit messages, and PR titles
-  in English. English is the canonical documentation language; explicitly translated READMEs and
-  localized player-facing text are intentional exceptions, not permission to translate source names
-  or comments.
-- Follow the surrounding code and the checked-in ESLint, Prettier, and EditorConfig settings.
-- Keep strict TypeScript enabled. Avoid `any`, unchecked assertions, and suppressed errors.
-- Use React function components and respect the Rules of Hooks.
-- Prefer readable, focused implementations. Extract helpers when they name a useful concept or
-  remove duplication; do not add abstractions for hypothetical future use.
-- Use CSS for styling. Do not add a styling framework or component library without agreement.
-- Make responsibilities, contracts, and non-obvious constraints understandable to new contributors.
-- Optimize observed problems and report measurements before claiming performance improvements.
-
-Do not change dependencies or regenerate the lockfile for a documentation-only task.
-
-### Comments and reuse
-
-- Document exported APIs, hooks, components, and nontrivial internal responsibilities with English
-  TSDoc. Explain session ownership, side effects, lifecycle, units, and limitations where applicable.
-- Use a concise summary and meaningful `@typeParam`, `@param`, `@returns`, `@remarks`, and `@example`
-  sections. Do not duplicate TypeScript types in JSDoc annotations or add tags without useful content.
-- Use inline comments for the reason behind non-obvious logic. Explain effect cleanup in React,
-  security boundaries in Electron, and unusual CSS or test constraints where they occur.
-- Keep comments current with behavior. Do not narrate every line or leave obsolete commented-out code.
-- Search for existing functions, hooks, components, types, and fixtures before adding alternatives.
-  Reuse them when their contracts and architecture boundaries fit; inspect consumers before changing
-  a shared helper. Do not force unrelated behavior into a generic abstraction just to remove a few lines.
-
-Follow [comments and API documentation](CONTRIBUTING.md#comments-and-api-documentation) and
-[reuse and clean structure](CONTRIBUTING.md#reuse-and-clean-structure) when implementing or reviewing.
-
-### Preferences and localization
-
-Keep preference persistence in `src/main/preferences-store.ts` with typed, validated preload methods.
-Keep setting choices as a local draft until explicit Save succeeds. Back/Esc must confirm discarding
-unsaved changes; they must not apply a draft or resume gameplay.
-Use the renderer's bundled i18next catalogs for all player-facing text, including accessible labels;
-pass stable message codes across IPC rather than translated strings. See
-[preferences and localization](CONTRIBUTING.md#preferences-and-localization) for the owning policy.
-
-## Desktop safety
-
-Keep `sandbox: true`, `contextIsolation: true`, and `nodeIntegration: false` in the application window.
-Do not weaken security settings to bypass implementation problems.
-
-For future desktop gameplay:
-
-- Receive gameplay clicks in the active game surface; never inject or forward them into other apps.
-- Use a virtual cursor for game effects rather than manipulating the Windows system cursor.
-- The demo plays on the primary monitor and shields secondary monitors from clicks. Native cursor
-  movement is not confined. Focus loss pauses, releases all shields/topmost behavior, and minimizes
-  every view after confirming actual focus loss, not a transient Windows blur notification. Keep
-  the app minimized until the user restores it; returning never auto-resumes.
-- Keep the primary window display-sized from startup so menu and gameplay edge shading stays on the
-  screen edges. Do not promote the primary window to always-on-top; only active secondary shields
-  use it. Menus remain compact cards.
-- Preserve a reliable pause and exit path. Release input capture on pause, focus loss, and shutdown.
-- Do not block Windows system shortcuts or repeatedly steal focus.
-- Do not add global input hooks, desktop capture, administrator requirements, background services,
-  remote code, or telemetry without explicit scope approval.
-
-Do not include screenshots, logs, environment values, or credentials containing private user data
-in committed files or public reports.
+- Keep `sandbox: true`, `contextIsolation: true`, and `nodeIntegration: false`; never weaken security.
+- Never forward clicks to other apps, move/confine the system cursor, block Windows shortcuts, or
+  steal focus. Play uses the primary monitor and secondary click shields; only those shields use
+  always-on-top. Confirm focus loss, release shields, and minimize; never restore automatically or auto-resume.
+- Keep the primary window display-sized, root backgrounds transparent, and menu cards opaque.
+  Keep animation state outside per-frame React renders and give external resources cleanup owners.
+- The approved introduction frame is isolated, primary-screen-only, bounded, and memory-only.
+  Retain it through dialogue/zoom-out, release at 1x or interruption, and recapture only on explicit
+  unfinished-intro resume. Never persist, transmit, or log pixels; reject stale responses.
+- Preserve the retained timeline, left-click/Enter-only dialogue, reduced motion, and replay preview
+  without overwriting saved progress. See [introduction](CONTRIBUTING.md#introduction-and-capture).
+- New global input hooks, capture capabilities, administrator requirements, services, remote code, and telemetry
+  require explicit scope approval. Do not publish private screenshots, logs, environment values, or secrets.
 
 ## Verification
 
-Choose checks based on the affected behavior:
+- Documentation only: formatting and link/path/command/claim checks; no desktop build.
+- TypeScript/configuration: formatting, lint, type checking, and build. Packaging also needs the
+  relevant Windows packaging command. UI/desktop changes need manual follow-up described to the user.
+- Do not add/run tests, desktop probes, or launch/automate the app unless explicitly requested.
+  The maintainer checks gameplay. Do not retain temporary audit scripts, profiles, or reports.
+- Report executed checks separately from source inspection and manual gaps. Never infer desktop,
+  focus, accessibility, performance, or multi-monitor acceptance from compilation alone.
 
-- Documentation-only changes: run formatting checks and verify links, paths, commands, and claims.
-  Do not run a desktop build solely to validate prose.
-- TypeScript or application configuration changes: run formatting, lint, type checking, and build.
-- Interface or desktop behavior changes: explain relevant manual Windows checks for the user.
-  Do not launch the app or automate interaction checks without a request. A successful build does
-  not prove that input capture, focus, accessibility, or cleanup works.
-- Packaging changes: run the relevant Windows packaging command as well as the application build.
+## Git and documentation
 
-Tests and their tooling have been removed at the maintainer's request. Do not add or run unit tests,
-integration tests, or Electron/browser test probes unless the user explicitly requests tests.
-The user performs manual gameplay checks. Formatting, lint, type checking, and compilation remain
-available static checks and are not a substitute for manual verification.
-
-Automated testing, coverage reporting, and CI workflows are not configured. Do not report unexecuted
-checks as passing. Distinguish source inspection, executed static checks, and remaining desktop gaps.
-
-## Git and change management
-
-- Start ordinary work from `develop` in `feature/<short-description>`. Use lowercase, hyphen-separated
-  descriptions and target feature PRs at `develop`.
-- Follow the release and hotfix paths in `CONTRIBUTING.md`; do not treat `main` as a feature branch.
-- Check the current branch and working tree before making changes. Preserve unrelated user work.
-- Make only changes needed for the requested task. Do not silently fix unrelated code or formatting.
-- Use Conventional Commits and conventional PR titles: `type(scope): short description`.
-- Create commits, push branches, open PRs, merge, or change repository settings only when requested.
-- Do not amend commits, rewrite shared history, force-push, or delete branches without explicit approval.
-- Keep `.vscode/`, secrets, signing certificates, dependencies, and generated output out of version control.
-
-## Documentation maintenance
-
-Keep the README approachable, the contribution guide actionable, and these instructions concise.
-Link to the document that owns a policy instead of copying long sections into multiple files.
-
-Do not claim that branch protections, CI, releases, downloads, or gameplay features exist unless
-verified. The version in `package.json` alone is not evidence of a published release.
-
-Update `CHANGELOG.md` under `Unreleased` for notable changes in the same branch and PR.
-Follow [changelog maintenance](CONTRIBUTING.md#changelog-maintenance); do not invent releases or dates.
+- Use Conventional Commits. Commit, push, open/merge PRs, change repository settings, amend,
+  rewrite history, force-push, or delete branches only when explicitly authorized.
+- Never discard unrelated changes. Keep `.vscode/`, dependencies, generated output, secrets, and
+  certificates out of Git; retain the lockfile, Windows icon, authored assets, and required licenses.
+- Keep documents task-oriented and avoid duplicated policies or source-level implementation detail.
+  Link to the owning section rather than copying it; preserve legal notices and published history.
+- Update `Unreleased` for notable changes in the same branch/PR. Do not invent releases, dates,
+  downloads, CI, or branch protections. See [changelog policy](CONTRIBUTING.md#changelog-maintenance).
