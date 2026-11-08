@@ -5,8 +5,9 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import { getDefaultPreferences, type PreferencesSnapshot } from '../../shared/preferences'
 import { initializeLocalization } from './i18n'
+import type { IntroductionProgress } from '../../shared/desktop-api'
 
-/** Initializes offline presentation before mounting; shield pages never request privileged settings. */
+/** Loads local preferences/progress before mounting; shield pages never request privileged profile data. */
 async function bootstrap(): Promise<void> {
   const shield = new URLSearchParams(window.location.search).get('surface') === 'shield'
   let initialPreferences: PreferencesSnapshot = {
@@ -14,12 +15,20 @@ async function bootstrap(): Promise<void> {
     preferences: getDefaultPreferences([]),
     issue: null
   }
+  let initialIntroduction: IntroductionProgress = { completed: false, issue: null }
   if (!shield) {
-    try {
-      initialPreferences = await window.desktop.getPreferences()
-    } catch {
-      initialPreferences = { ...initialPreferences, issue: 'load-failed' }
-    }
+    const [preferences, introduction] = await Promise.allSettled([
+      window.desktop.getPreferences(),
+      window.desktop.getIntroductionProgress()
+    ])
+    initialPreferences =
+      preferences.status === 'fulfilled'
+        ? preferences.value
+        : { ...initialPreferences, issue: 'load-failed' }
+    initialIntroduction =
+      introduction.status === 'fulfilled'
+        ? introduction.value
+        : { completed: false, issue: 'load-failed' }
   }
   document.documentElement.dataset.theme = initialPreferences.preferences.theme
   await initializeLocalization(initialPreferences.preferences.language)
@@ -28,7 +37,7 @@ async function bootstrap(): Promise<void> {
   // StrictMode requires every subscription to tolerate setup/cleanup/setup without duplicating work.
   createRoot(root).render(
     <StrictMode>
-      <App initialPreferences={initialPreferences} />
+      <App initialPreferences={initialPreferences} initialIntroduction={initialIntroduction} />
     </StrictMode>
   )
 }

@@ -351,6 +351,383 @@ button[aria-busy='true'] {
   gap: 12px;
 }
 
+/* The supervisor cannot receive clicks or paint over help/cursor. Clip to the primary surface. */
+.supervisor-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.screen-supervisor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 128px;
+  height: 96px;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+/* Separate discrete face poses preserve source-pixel shapes rather than morphing vector paths. */
+.screen-supervisor .supervisor-eyes-half,
+.screen-supervisor .supervisor-eyes-drowsy,
+.screen-supervisor .supervisor-eyes-closed,
+.screen-supervisor .supervisor-mouth-small,
+.screen-supervisor .supervisor-mouth-wide,
+.screen-supervisor[data-blink='half'] .supervisor-eyes-open,
+.screen-supervisor[data-blink='closed'] .supervisor-eyes-open,
+.screen-supervisor[data-smile='small'] .supervisor-mouth-neutral,
+.screen-supervisor[data-smile='wide'] .supervisor-mouth-neutral {
+  display: none;
+}
+
+.screen-supervisor[data-blink='half'] .supervisor-eyes-half,
+.screen-supervisor[data-blink='closed'] .supervisor-eyes-closed,
+.screen-supervisor[data-smile='small'] .supervisor-mouth-small,
+.screen-supervisor[data-smile='wide'] .supervisor-mouth-wide {
+  display: inline;
+}
+
+.screen-supervisor[data-expression='sleepy'][data-blink='half'] .supervisor-eyes-half {
+  display: none;
+}
+
+.screen-supervisor[data-expression='sleepy'][data-blink='half'] .supervisor-eyes-drowsy {
+  display: inline;
+}
+
+/* Frame-swapped LED facial art stays on the authored grid; no continuous lip/brow deformation. */
+.supervisor-brows > *,
+.supervisor-mouth-closed,
+.supervisor-mouth-half,
+.supervisor-mouth-open,
+.screen-supervisor:not([data-mouth='rest']) .supervisor-mouth-neutral,
+.screen-supervisor:not([data-mouth='rest']) .supervisor-mouth-small,
+.screen-supervisor:not([data-mouth='rest']) .supervisor-mouth-wide {
+  display: none;
+}
+
+.screen-supervisor[data-expression='sleepy'] .supervisor-brows-sleepy,
+.screen-supervisor[data-expression='friendly'] .supervisor-brows-friendly,
+.screen-supervisor[data-expression='skeptical'] .supervisor-brows-skeptical,
+.screen-supervisor[data-expression='confident'] .supervisor-brows-confident,
+.screen-supervisor[data-expression='playful'] .supervisor-brows-playful,
+.screen-supervisor[data-expression='pleased'] .supervisor-brows-pleased,
+.screen-supervisor[data-mouth='closed'] .supervisor-mouth-closed,
+.screen-supervisor[data-mouth='half'] .supervisor-mouth-half,
+.screen-supervisor[data-mouth='open'] .supervisor-mouth-open {
+  display: inline;
+}
+
+/* The screenshot and foreground actor share perspective; dialogue counter-scales for readability.
+   The empty opening hides cursor/help and edges; the closing vignette matches normal gameplay. */
+.game-surface[data-introduction='true'] {
+  background: none;
+}
+
+.game-surface[data-introduction='true'] .game-hud,
+.game-surface[data-introduction='true'] .virtual-cursor {
+  display: none;
+}
+
+.game-surface[data-introduction='true']:has(.manager-introduction[data-phase='dialogue']) {
+  cursor: var(--pixel-pointer), default;
+}
+
+.manager-introduction {
+  --intro-focus: 0;
+  --intro-shade: 0;
+  --intro-bubble-width: 300px;
+  --intro-dialogue-scale: 1;
+  --intro-dialogue-offset: 64px;
+  --intro-dialogue-shift: 0px;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* A decoded single frame is composited with transforms, never repainted via canvas every frame.
+   Promotion exists only while the introduction mounts; no permanent full-screen GPU layers. */
+.introduction-background {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform-origin: center;
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+  will-change: transform, opacity;
+}
+
+.introduction-focus,
+.introduction-focus::after {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(to right, var(--edge-fade)) left / var(--edge-depth) 100% no-repeat,
+    linear-gradient(to left, var(--edge-fade)) right / var(--edge-depth) 100% no-repeat,
+    linear-gradient(to bottom, var(--edge-fade)) top / 100% var(--edge-depth) no-repeat,
+    linear-gradient(to top, var(--edge-fade)) bottom / 100% var(--edge-depth) no-repeat;
+}
+
+.introduction-focus {
+  opacity: var(--intro-shade);
+}
+
+.introduction-focus::after {
+  content: '';
+  --edge-depth: 28vmin;
+  opacity: var(--intro-focus);
+}
+
+.introduction-camera {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+}
+
+.introduction-actor {
+  position: absolute;
+  top: -48px;
+  left: -64px;
+  width: 128px;
+  height: 96px;
+  visibility: hidden;
+  transform-origin: center;
+  z-index: 1;
+}
+
+.introduction-arrival {
+  position: absolute;
+  top: -140px;
+  left: -180px;
+  width: 360px;
+  height: 280px;
+  overflow: visible;
+  visibility: hidden;
+  pointer-events: none;
+  transform-origin: center;
+  /* Local finite SVG layers, not a full-screen filter/flash. The retained JS timeline owns all
+     motion so pause/resume never restarts a CSS entrance animation or leaves an emitter running. */
+  z-index: 0;
+}
+
+.introduction-dialogue {
+  position: absolute;
+  bottom: var(--intro-dialogue-offset);
+  left: 0;
+  width: max-content;
+  max-width: var(--intro-bubble-width);
+  transform: scale(var(--intro-dialogue-scale)) translateX(calc(-50% + var(--intro-dialogue-shift)));
+  transform-origin: left bottom;
+  z-index: 2;
+}
+
+.speech-bubble-group {
+  max-width: 100%;
+}
+
+.speech-bubble {
+  position: relative;
+  display: block;
+  isolation: isolate;
+  width: max-content;
+  max-width: var(--intro-bubble-width, min(360px, calc(100vw - 40px)));
+  min-height: 0;
+  padding: 18px 20px 14px;
+  border: 0;
+  color: #171923;
+  background: transparent;
+  box-shadow: none;
+  font-family: var(--pixel-title-font);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.9;
+  text-align: left;
+  cursor: inherit;
+}
+
+.speech-bubble:hover:not(:disabled),
+.speech-bubble:active:not(:disabled) {
+  background: transparent;
+  box-shadow: none;
+}
+
+.speech-bubble:focus-visible {
+  outline: 2px solid #ffbd54;
+  outline-offset: 8px;
+}
+
+.speech-bubble-shadow,
+.speech-bubble-frame,
+.speech-bubble-frame::after {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* Square stair-step corners remain authored pixels, not rounded UI corners. */
+  clip-path: polygon(
+    0 8px,
+    4px 8px,
+    4px 4px,
+    8px 4px,
+    8px 0,
+    calc(100% - 8px) 0,
+    calc(100% - 8px) 4px,
+    calc(100% - 4px) 4px,
+    calc(100% - 4px) 8px,
+    100% 8px,
+    100% calc(100% - 8px),
+    calc(100% - 4px) calc(100% - 8px),
+    calc(100% - 4px) calc(100% - 4px),
+    calc(100% - 8px) calc(100% - 4px),
+    calc(100% - 8px) 100%,
+    8px 100%,
+    8px calc(100% - 4px),
+    4px calc(100% - 4px),
+    4px calc(100% - 8px),
+    0 calc(100% - 8px)
+  );
+}
+
+.speech-bubble-shadow {
+  z-index: -3;
+  background: #777;
+  transform: translate(-4px, 4px);
+}
+
+.speech-bubble-frame {
+  z-index: -2;
+  background: #111;
+}
+
+.speech-bubble-frame::after {
+  content: '';
+  inset: 4px;
+  background: #fff;
+}
+
+.speech-bubble-tail {
+  position: absolute;
+  top: calc(100% - 4px);
+  /* Correct for the slight rightward balloon nudge: its stepped tip still points at the head. */
+  left: calc(50% - 14px - var(--intro-dialogue-shift));
+  z-index: -1;
+  width: 24px;
+  height: 20px;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.speech-bubble-copy {
+  display: grid;
+  overflow-wrap: anywhere;
+}
+
+.speech-bubble-copy > span {
+  grid-area: 1 / 1;
+  white-space: pre-wrap;
+}
+
+.speech-bubble-measure {
+  visibility: hidden;
+}
+
+.dialogue-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  margin-top: 6px;
+  color: #535b69;
+  font-family: var(--menu-font);
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+  /* No separate card, icon row, or action label: a quiet single line on the solid balloon surface. */
+}
+
+.dialogue-prompt kbd {
+  padding: 0;
+  font: inherit;
+}
+
+.dialogue-prompt-arrow {
+  flex: 0 0 6px;
+  width: 6px;
+  height: 6px;
+  color: #171923;
+  visibility: hidden;
+}
+
+.dialogue-prompt[data-ready='true'] .dialogue-prompt-arrow {
+  visibility: visible;
+  animation: dialogue-continue-nudge 1.2s steps(2, end) infinite;
+}
+
+.manager-introduction[data-animate='false'] .dialogue-prompt-arrow {
+  animation-play-state: paused;
+}
+
+@keyframes dialogue-continue-nudge {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(1px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialogue-prompt[data-ready='true'] .dialogue-prompt-arrow {
+    animation: none;
+  }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.game-status {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 1;
+  max-width: min(360px, calc(100vw - 40px));
+  margin: 0;
+  padding: 12px;
+  color: var(--pixel-paper);
+  background: var(--pixel-background);
+  border: 3px solid var(--pixel-border);
+  font-family: var(--menu-font);
+  font-size: 14px;
+}
+
+@media (max-height: 400px) {
+  .speech-bubble {
+    padding: 12px 16px;
+    font-size: 8px;
+  }
+}
+
 .game-hud {
   position: absolute;
   z-index: 1;

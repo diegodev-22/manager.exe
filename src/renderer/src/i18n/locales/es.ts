@@ -36,15 +36,37 @@ const es = {
   },
   game: {
     label: 'Demo de interacción con el escritorio',
+    supervisorPreview:
+      'Vista previa del supervisor de pantalla: un pequeño monitor flotante con ojos animados y una sonrisa.',
     help: 'Ayuda del juego',
     pause: 'Pausar el juego',
     pauseHelp: 'Continúa o sal desde el menú.'
+  },
+  introduction: {
+    label: 'Presentación de Manager',
+    captureFailed: 'No se pudo obtener la imagen. Continuamos sin ampliar el escritorio.',
+    hello: 'Hola…',
+    bored: '¿Aburrido? Qué manera tan poco profesional de perder el tiempo.',
+    identity: 'Soy Manager. Y tengo un plan mucho mejor para tu tiempo libre.',
+    invitation: 'Te propongo probar mis minijuegos. Tú pones los reflejos; yo pongo las sorpresas.',
+    agreement: '¿Trato hecho? Excelente. Prometo supervisar… discretamente.'
+  },
+  dialogue: {
+    controls:
+      'Haz clic izquierdo o pulsa Enter para mostrar la frase completa; repite para continuar.',
+    click: 'Clic',
+    enter: 'Enter',
+    reveal: 'Mostrar texto',
+    continue: 'Continuar'
   },
   errors: {
     connection: 'La conexión con el escritorio no está disponible. Cierra esta ventana con Alt+F4.',
     command: 'No se pudo completar la acción. Inténtalo de nuevo o cierra con Alt+F4.',
     loadPreferences: 'No se pudieron cargar los ajustes.',
-    savePreferences: 'No se pudieron guardar los cambios.'
+    savePreferences: 'No se pudieron guardar los cambios.',
+    loadIntroduction: 'No se pudo cargar el progreso de la introducción. Se mostrará de nuevo.',
+    saveIntroduction:
+      'No se pudo guardar la introducción. Podría repetirse al volver a abrir el juego.'
   },
   notices: {
     paused: 'En pausa. Continúa cuando quieras.',

@@ -1,6 +1,8 @@
 /* Native and document backgrounds must both be transparent for the desktop to remain visible. */
 :root {
-  color-scheme: dark;
+  /* A dark root color scheme can give Chromium's canvas an opaque default background. Keep
+     the window canvas neutral; native UI colors belong to the body, not the desktop backdrop. */
+  color-scheme: normal;
   --pixel-ink: #101010;
   --pixel-background: #202020;
   --pixel-panel: #303030;
@@ -33,7 +35,6 @@
 
 /* Themes affect only application UI; never fill the transparent desktop/shield background. */
 :root[data-theme='light'] {
-  color-scheme: light;
   --pixel-ink: #292929;
   --pixel-background: #f2f2f2;
   --pixel-panel: #e0e0e0;
@@ -59,8 +60,19 @@
   box-sizing: border-box;
 }
 
+html,
+body,
+#root {
+  background: transparent;
+}
+
 body {
+  color-scheme: dark;
   margin: 0;
   min-height: 100vh;
   overflow: hidden;
+}
+
+:root[data-theme='light'] body {
+  color-scheme: light;
 }

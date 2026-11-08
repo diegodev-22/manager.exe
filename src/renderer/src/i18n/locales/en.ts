@@ -34,15 +34,35 @@ const en = {
   },
   game: {
     label: 'Desktop interaction demo',
+    supervisorPreview:
+      'Screen supervisor design preview: a small floating monitor with animated eyes and a smile.',
     help: 'Game help',
     pause: 'Pause the game',
     pauseHelp: 'Resume or exit from the menu.'
+  },
+  introduction: {
+    label: 'Manager introduction',
+    captureFailed: 'Screen image unavailable. Continuing without desktop zoom.',
+    hello: 'Hello…',
+    bored: 'Bored, are we? What a spectacular waste of potential.',
+    identity: "I'm Manager. And I have a much better use for your free time.",
+    invitation: "Let's try my minigames. You bring the reflexes. I'll bring the surprises.",
+    agreement: "A deal? Excellent. I'll be supervising… discreetly."
+  },
+  dialogue: {
+    controls: 'Left click or press Enter to show the full sentence, then again to continue.',
+    click: 'Click',
+    enter: 'Enter',
+    reveal: 'Show text',
+    continue: 'Continue'
   },
   errors: {
     connection: 'The desktop connection is unavailable. Close this window with Alt+F4.',
     command: 'The action could not be completed. Please try again, or close with Alt+F4.',
     loadPreferences: 'Could not load settings.',
-    savePreferences: 'Could not save changes.'
+    savePreferences: 'Could not save changes.',
+    loadIntroduction: 'Could not load introduction progress. It will play again.',
+    saveIntroduction: 'Could not save introduction progress. It may play again next time.'
   },
   notices: {
     paused: 'Paused. Resume when you are ready.',

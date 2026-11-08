@@ -1,0 +1,31 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="64"
+  height="48"
+  viewBox="0 0 64 48"
+  shape-rendering="crispEdges"
+>
+  <!-- Authored floating CRT shell, without a humanoid body. Eyes and mouth are renderer-owned layers. -->
+  <g fill="#171923">
+    <path d="M28 2h8v2h-8zM8 5h46v3h5v29h-3v5H8v-3H5V10h3z" />
+  </g>
+  <g fill="#343849">
+    <path d="M10 8h42v3h4v25h-3v3H10v-3H8V11h2z" />
+  </g>
+  <g fill="#85899c">
+    <path d="M10 8h42v3h4v24h-4v3H10V35H8V11h2z" />
+  </g>
+  <g fill="#c0c4ce">
+    <path d="M11 8h40v2H11zM9 11h2v23H9z" />
+  </g>
+  <!-- The broken upper-right corner and status lamp distinguish this monitor from a generic CRT. -->
+  <path fill="#171923" d="M49 7h5v4h-3V9h-2zM13 12h37v3h3v16h-3v3H13v-3h-2V15h2z" />
+  <path fill="#343849" d="M15 14h33v2H15zM13 16h2v14h-2z" />
+  <path fill="#171923" d="M15 16h34v15H15z" />
+  <g fill="#ffbd54">
+    <path d="M29 2h6v2h-6zM46 35h5v2h-5z" />
+  </g>
+  <g fill="#343849">
+    <path d="M13 35h12v1H13zM13 37h12v1H13zM30 35h4v2h-4z" />
+  </g>
+</svg>
