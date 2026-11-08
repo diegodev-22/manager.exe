@@ -10,6 +10,22 @@ See [changelog maintenance](CONTRIBUTING.md#changelog-maintenance) for contribut
 
 ### Added
 
+- Manager introduction with desktop-background zoom, white/gray side smoke, a sleepy wake-up, and
+  five localized speech balloons. Left click/Enter reveals or advances text; Space does not. Esc
+  pauses the retained timeline. Facial expressions and mouth frames follow the dialogue; a compact
+  Click · Enter hint stays inside the balloon. Reduced motion skips capture, zoom, smoke, waking
+  motion, and typing. This is a presentation preview, not a finished minigame.
+- Automatic, memory-only primary-screen capture for the introduction, acquired in an isolated
+  disposable window without an in-game permission dialog. One bounded frame accompanies the
+  entrance, dialogue, and zoom-out; it is released at normal zoom or on interruption. Resume
+  recaptures only while the introduction is unfinished. Capture failure continues without zoom;
+  Windows zoom is unchanged. Desktop and visual acceptance remain manual.
+- Per-profile introduction completion through validated IPC, stored separately from preferences.
+  Temporary preview mode replays on each launch without changing saved progress.
+- First pixel-art screen supervisor preview on Play: a small floating CRT without humanoid limbs.
+  Independent blinking eyes, gaze changes, and smiles accompany movement around the primary display.
+  Pause/settings preserve its visual state; reduced motion shows a still pose. This is a design
+  preview, not a minigame or combat system; appearance and Windows behavior await manual review.
 - Settings available from the start and pause menus, with light/dark themes and offline
   English/Spanish localization. Choices remain drafts until Save succeeds; saving keeps settings
   open, while Back/Esc confirms discarding pending edits and returns without resuming play.
@@ -29,7 +45,7 @@ See [changelog maintenance](CONTRIBUTING.md#changelog-maintenance) for contribut
   `exiting` states. Pause, resume, and settings transitions preserve the caller's exact session
   reference; unsupported actions leave the same state object unchanged.
 - Windows interaction demo with Play/Exit and Esc pause/Resume menus, real Electron shutdown,
-  a primary-display click test and virtual cursor, and transparent secondary-display input shields.
+  primary-display click handling and a virtual cursor, and transparent secondary-display input shields.
   Focus loss and display changes pause and release the shields; returning never auto-resumes.
   Real task switching and multi-monitor behavior still require manual Windows verification.
 - Narrow typed preload API with sender/frame and command validation and cancellable overlay loading.
@@ -39,12 +55,15 @@ See [changelog maintenance](CONTRIBUTING.md#changelog-maintenance) for contribut
 
 ### Changed
 
+- Shortened the English and Spanish READMEs to the project overview, current demo, controls, and setup;
+  contributor implementation details remain in the contribution guide.
 - Centered the initial menu and settings within the Windows work area, with pause menus anchored
   bottom-left clear of the taskbar. Revisioned DIP insets update layout without changing the session.
 - Presented menus as opaque pixel-framed cards over transparent margins, with theme-specific
   contrast, keyboard-only navigation rings, larger system-font controls, and compact copy. Read-only
   display values use muted recessed frames and more section spacing instead of button affordances.
-  No background blur, desktop capture, or new click-through behavior is configured.
+  Menu rendering uses no background blur, desktop capture, or new click-through behavior; the
+  introduction acquires its frame only after Play/Resume activates foreground gameplay.
 - Refocused the English and Spanish READMEs on Manager.exe's own identity and plans, with brief
   creator credits for Diego Avalos and Giovanni Vilela.
 - Simplified the initial and pause menus to Manager.exe and a vertical stack of Play/Resume,
@@ -79,16 +98,22 @@ See [changelog maintenance](CONTRIBUTING.md#changelog-maintenance) for contribut
 
 ### Fixed
 
+- Centered the virtual cursor before its first movement notification after the introduction instead
+  of showing it at the top-left. The Windows system cursor is not moved.
+- Kept Chromium's root canvas color scheme neutral and explicitly cleared document/root backgrounds
+  so light/dark UI themes do not fill the transparent desktop backdrop. Menu margins and post-intro
+  play use native transparency, not a persistent screenshot.
+- Kept the captured background throughout dialogue and the closing zoom-out instead of removing it
+  at the first sentence. Resuming preserves dialogue progress without enabling a previously unavailable
+  zoom; cancellation rejects stale capture responses.
 - Confirmed actual focus loss before minimizing any view, ignoring transient Windows blur events.
   Released shields/topmost behavior before yielding, removed primary-window topmost promotion and
   focus recovery, and guarded pending activation against cancellation. Background display updates
   cannot restore the window; returning preserves menus/drafts and never auto-resumes gameplay.
-  An earlier temporary one-display Windows audit passed Play/Resume, Esc, Alt+Tab, Win+Tab departure,
-  and controlled other-window input scenarios. Its scripts/profiles were removed; later settings
-  refinements, native display readings, and actual multi-monitor shielding remain manually unverified.
 
 ### Removed
 
 - Automated tests, scripted Electron probes, Vitest, test scripts, and test TypeScript configuration
   at the maintainer's request. Tests will only be added or run when explicitly requested; gameplay
   verification is currently manual, while formatting, lint, type checking, and compilation remain available.
+- Temporary test/audit reports and their verification claims from project documentation.
